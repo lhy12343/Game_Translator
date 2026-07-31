@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GameTranslator.Gui.ViewModels"
+             x:Class="GameTranslator.Gui.Views.HomePage"
+             Padding="32,24">
+
+    <Design.DataContext>
+        <vm:HomePageViewModel/>
+    </Design.DataContext>
+
+    <StackPanel Spacing="20">
+        <!-- 标题 -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="游戏进程" FontSize="24" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="选择目标游戏进程并注入翻译 Hook" FontSize="13"
+                       Foreground="{StaticResource TextSecondaryBrush}"/>
+        </StackPanel>
+
+        <!-- 状态卡片 -->
+        <UniformGrid Columns="4" Rows="1">
+            <Border CornerRadius="10" Padding="16" Margin="0,0,8,0"
+                    Background="{StaticResource BgSecondaryBrush}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="进程" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding SelectedProcess}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="16" Margin="0,0,8,0"
+                    Background="{StaticResource BgSecondaryBrush}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="引擎" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding GameEngine}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="16" Margin="0,0,8,0"
+                    Background="{StaticResource BgSecondaryBrush}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="状态" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding TranslateStatus}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource SuccessGreenBrush}"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="16"
+                    Background="{StaticResource BgSecondaryBrush}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="已翻译" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding TranslatedCount}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- 进程列表 -->
+        <Border CornerRadius="10" Background="{StaticResource BgSecondaryBrush}" Padding="4">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto" Margin="12,8,12,4">
+                    <TextBlock Text="进程列表" FontSize="15" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <Button Grid.Column="1" Content="🔄 刷新" Command="{Binding RefreshProcessesCommand}"
+                            Background="Transparent" BorderThickness="1"
+                            BorderBrush="{StaticResource BorderSubtleBrush}"
+                            Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Padding="12,4"/>
+                </Grid>
+                <ListBox ItemsSource="{Binding ProcessList}"
+                         SelectedItem="{Binding SelectedProcessItem}"
+                         Background="Transparent" BorderThickness="0" MaxHeight="180"
+                         Padding="4">
+                    <ListBox.ItemContainerTheme>
+                        <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Padding" Value="12,8"/>
+                            <Setter Property="Margin" Value="2"/>
+                            <Setter Property="CornerRadius" Value="6"/>
+                        </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                </ListBox>
+            </StackPanel>
+        </Border>
+
+        <!-- 操作按钮 -->
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left">
+            <Button Content="🔗 注入" Command="{Binding AttachCommand}"
+                    Background="{StaticResource AccentPrimaryBrush}" Foreground="White"
+                    BorderThickness="0" CornerRadius="8" Padding="24,10" FontSize="14"/>
+            <Button Content="⏹ 断开" Command="{Binding DetachCommand}"
+                    Background="{StaticResource BgTertiaryBrush}"
+                    Foreground="{StaticResource TextSecondaryBrush}"
+                    BorderThickness="1" BorderBrush="{StaticResource BorderSubtleBrush}"
+                    CornerRadius="8" Padding="24,10" FontSize="14"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

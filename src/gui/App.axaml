@@ -1,0 +1,33 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="GameTranslator.Gui.App"
+             RequestedThemeVariant="Dark">
+    <Application.Resources>
+        <!-- 调色板 -->
+        <Color x:Key="BgPrimary">#0F0F14</Color>
+        <Color x:Key="BgSecondary">#1A1A24</Color>
+        <Color x:Key="BgTertiary">#242430</Color>
+        <Color x:Key="AccentPrimary">#6C5CE7</Color>
+        <Color x:Key="AccentSecondary">#A29BFE</Color>
+        <Color x:Key="TextPrimary">#E8E8F0</Color>
+        <Color x:Key="TextSecondary">#9090A8</Color>
+        <Color x:Key="BorderSubtle">#2A2A38</Color>
+        <Color x:Key="SuccessGreen">#00B894</Color>
+        <Color x:Key="WarningOrange">#FDCB6E</Color>
+
+        <SolidColorBrush x:Key="BgPrimaryBrush" Color="{StaticResource BgPrimary}"/>
+        <SolidColorBrush x:Key="BgSecondaryBrush" Color="{StaticResource BgSecondary}"/>
+        <SolidColorBrush x:Key="BgTertiaryBrush" Color="{StaticResource BgTertiary}"/>
+        <SolidColorBrush x:Key="AccentPrimaryBrush" Color="{StaticResource AccentPrimary}"/>
+        <SolidColorBrush x:Key="AccentSecondaryBrush" Color="{StaticResource AccentSecondary}"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
+        <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtle}"/>
+        <SolidColorBrush x:Key="SuccessGreenBrush" Color="{StaticResource SuccessGreen}"/>
+        <SolidColorBrush x:Key="WarningOrangeBrush" Color="{StaticResource WarningOrange}"/>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+</Application>
