@@ -1,0 +1,55 @@
+# === C# / .NET ===
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+.vs/
+*.sln.docstates
+project.lock.json
+TestResult.xml
+[Bb]uild[Ll]og.*
+
+# === C++ ===
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+*.cmake
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# === Node.js ===
+node_modules/
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === 项目特定 ===
+assets/fonts/*.ttc
+assets/fonts/*.ttf
+*.log
+secrets.json
+appsettings.Local.json
