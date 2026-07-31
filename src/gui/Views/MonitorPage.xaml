@@ -1,0 +1,79 @@
+<UserControl x:Class="GameTranslator.Gui.Views.MonitorPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Padding="32,24">
+    <StackPanel Margin="0,0,0,24">
+        <StackPanel Margin="0,0,0,20">
+            <TextBlock Text="性能监控" FontSize="24" FontWeight="Bold" Foreground="#E8E8F0"/>
+            <TextBlock Text="实时监控翻译性能与系统资源" FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
+        </StackPanel>
+        <UniformGrid Columns="4" Rows="2" Margin="0,0,0,20">
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="游戏 FPS" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding Fps, StringFormat={}{0:F1}}" FontSize="28" FontWeight="Bold" Foreground="#00B894" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="Hook 延迟" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding HookLatencyMs, StringFormat={}{0:F2}ms}" FontSize="28" FontWeight="Bold" Foreground="#A29BFE" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="翻译延迟" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding TranslationLatencyMs, StringFormat={}{0:F0}ms}" FontSize="28" FontWeight="Bold" Foreground="#FDCB6E" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Margin="0,0,0,8" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="缓存命中率" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding CacheHitRate, StringFormat={}{0:F1}%}" FontSize="28" FontWeight="Bold" Foreground="#00B894" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,0" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="队列长度" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding QueueLength}" FontSize="28" FontWeight="Bold" Foreground="#E8E8F0" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,0" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="CPU 占用" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding CpuUsage, StringFormat={}{0:F1}%}" FontSize="28" FontWeight="Bold" Foreground="#E8E8F0" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,0" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="内存占用" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding MemoryMb, StringFormat={}{0:F1}MB}" FontSize="28" FontWeight="Bold" Foreground="#E8E8F0" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="20" Background="#1A1A24">
+                <StackPanel>
+                    <TextBlock Text="总翻译数" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding TotalTranslated}" FontSize="28" FontWeight="Bold" Foreground="#A29BFE" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+        <Border CornerRadius="10" Background="#1A1A24" Padding="16">
+            <StackPanel>
+                <TextBlock Text="实时翻译流" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,8"/>
+                <Border CornerRadius="6" Background="#0F0F14" Padding="12" MinHeight="120">
+                    <StackPanel>
+                        <TextBlock FontSize="12" Foreground="#9090A8" Margin="0,0,0,4">
+                            <Run Text="[12:34:56] "/><Run Text="原文: " Foreground="#FDCB6E"/><Run Text="こんにちは、世界"/>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#9090A8" Margin="0,0,0,4">
+                            <Run Text="[12:34:56] "/><Run Text="译文: " Foreground="#00B894"/><Run Text="你好，世界"/>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#9090A8">
+                            <Run Text="[12:34:57] "/><Run Text="缓存命中" Foreground="#A29BFE"/><Run Text=": こんにちは、世界"/>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

@@ -35,10 +35,7 @@ public partial class HomePageViewModel : ViewModelBase
     };
 
     [RelayCommand]
-    private void RefreshProcesses()
-    {
-        // TODO: 枚举系统进程
-    }
+    private void RefreshProcesses() { }
 
     [RelayCommand]
     private void Attach()

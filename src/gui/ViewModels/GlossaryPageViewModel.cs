@@ -32,12 +32,6 @@ public partial class GlossaryPageViewModel : ViewModelBase
         NewSource = "";
         NewTarget = "";
     }
-
-    [RelayCommand]
-    private void DeleteEntry(GlossaryEntry entry)
-    {
-        Entries.Remove(entry);
-    }
 }
 
 public class GlossaryEntry

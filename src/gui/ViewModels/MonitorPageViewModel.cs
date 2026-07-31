@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace GameTranslator.Gui.ViewModels;
@@ -6,43 +5,29 @@ namespace GameTranslator.Gui.ViewModels;
 public partial class MonitorPageViewModel : ViewModelBase
 {
     [ObservableProperty]
-    private double _fps;
+    private double _fps = 59.8;
 
     [ObservableProperty]
-    private double _hookLatencyMs;
+    private double _hookLatencyMs = 0.03;
 
     [ObservableProperty]
-    private double _translationLatencyMs;
+    private double _translationLatencyMs = 320;
 
     [ObservableProperty]
-    private double _cacheHitRate;
+    private double _cacheHitRate = 72.5;
 
     [ObservableProperty]
-    private int _queueLength;
+    private int _queueLength = 3;
 
     [ObservableProperty]
-    private double _cpuUsage;
+    private double _cpuUsage = 2.1;
 
     [ObservableProperty]
-    private double _memoryMb;
+    private double _memoryMb = 45.2;
 
     [ObservableProperty]
-    private int _totalTranslated;
+    private int _totalTranslated = 1024;
 
     [ObservableProperty]
-    private int _totalCacheHits;
-
-    public MonitorPageViewModel()
-    {
-        // 模拟数据
-        Fps = 59.8;
-        HookLatencyMs = 0.03;
-        TranslationLatencyMs = 320;
-        CacheHitRate = 72.5;
-        QueueLength = 3;
-        CpuUsage = 2.1;
-        MemoryMb = 45.2;
-        TotalTranslated = 1024;
-        TotalCacheHits = 742;
-    }
+    private int _totalCacheHits = 742;
 }

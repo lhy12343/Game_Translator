@@ -1,5 +1,4 @@
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
+using System.Windows.Controls;
 
 namespace GameTranslator.Gui.Views;
 

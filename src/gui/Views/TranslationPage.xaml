@@ -1,0 +1,57 @@
+<UserControl x:Class="GameTranslator.Gui.Views.TranslationPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Padding="32,24">
+    <StackPanel Margin="0,0,0,24">
+        <StackPanel Margin="0,0,0,20">
+            <TextBlock Text="翻译设置" FontSize="24" FontWeight="Bold" Foreground="#E8E8F0"/>
+            <TextBlock Text="缓存、富文本、排版自适应等高级选项" FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
+        </StackPanel>
+        <Border CornerRadius="10" Background="#1A1A24" Padding="24" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock Text="🗄 缓存" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,12"/>
+                <CheckBox IsChecked="{Binding EnableCache}" Content="启用 LRU 缓存" Foreground="#E8E8F0" Margin="0,0,0,8"/>
+                <StackPanel Visibility="{Binding EnableCache, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="缓存容量 (条)" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
+                    <Slider Value="{Binding CacheSize}" Minimum="1000" Maximum="50000" TickFrequency="1000" IsSnapToTickEnabled="True" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding CacheSize}" FontSize="12" Foreground="#A29BFE"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border CornerRadius="10" Background="#1A1A24" Padding="24" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock Text="📝 富文本处理" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,12"/>
+                <CheckBox IsChecked="{Binding EnableRichText}" Content="保留标记格式 (颜色/大小/抖动等)" Foreground="#E8E8F0"/>
+            </StackPanel>
+        </Border>
+        <Border CornerRadius="10" Background="#1A1A24" Padding="24" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock Text="📐 排版自适应" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,12"/>
+                <CheckBox IsChecked="{Binding EnableAutoLayout}" Content="自动调整文本框宽度/换行/字号" Foreground="#E8E8F0" Margin="0,0,0,8"/>
+                <StackPanel Visibility="{Binding EnableAutoLayout, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="最小字号缩放比例" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
+                    <Slider Value="{Binding FontScaleMin}" Minimum="0.5" Maximum="1.0" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding FontScaleMin, StringFormat={}{0:P0}}" FontSize="12" Foreground="#A29BFE"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border CornerRadius="10" Background="#1A1A24" Padding="24" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock Text="🔍 OCR 兜底" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,12"/>
+                <CheckBox IsChecked="{Binding EnableOcr}" Content="启用 OCR (无法 Hook 时自动启用)" Foreground="#E8E8F0" Margin="0,0,0,8"/>
+                <StackPanel Visibility="{Binding EnableOcr, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="OCR 帧率 (fps)" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
+                    <Slider Value="{Binding OcrFps}" Minimum="5" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding OcrFps}" FontSize="12" Foreground="#A29BFE"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border CornerRadius="10" Background="#1A1A24" Padding="24">
+            <StackPanel>
+                <TextBlock Text="⚙ 其他" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,12"/>
+                <CheckBox IsChecked="{Binding EnableOverlay}" Content="透明窗口叠加显示" Foreground="#E8E8F0" Margin="0,0,0,8"/>
+                <CheckBox IsChecked="{Binding EnableTermConsistency}" Content="术语一致性维护" Foreground="#E8E8F0"/>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
