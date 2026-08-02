@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -32,8 +33,7 @@ public partial class ApiConfigPageViewModel : ViewModelBase
     [ObservableProperty]
     private string _connectionStatus;
 
-    public string[] SourceLanguages { get; } = ["自动检测", "日语", "英语", "韩语", "简体中文", "繁体中文"];
-    public string[] TargetLanguages { get; } = ["简体中文", "繁体中文", "英语", "日语", "韩语"];
+    public IReadOnlyList<string> SourceLanguages => TranslatorConfig.SupportedSourceLanguages;
     public XUnityBridgeServer GameBridge => _runtime.Bridge;
 
     public ApiConfigPageViewModel(TranslationRuntime runtime)
@@ -42,8 +42,10 @@ public partial class ApiConfigPageViewModel : ViewModelBase
         var config = runtime.CurrentConfig;
         _baseUrl = config.BaseUrl;
         _modelName = config.Model;
-        _sourceLanguage = config.SourceLanguage;
-        _targetLanguage = config.TargetLanguage;
+        _sourceLanguage = config.SourceLanguage == TranslatorConfig.Japanese
+            ? TranslatorConfig.Japanese
+            : TranslatorConfig.English;
+        _targetLanguage = TranslatorConfig.Chinese;
         _timeoutSeconds = config.TimeoutSeconds;
         _connectionStatus = runtime.ConfigurationLoadError
                             ?? (string.IsNullOrEmpty(config.BaseUrl) ? "等待配置" : "已加载本地配置");

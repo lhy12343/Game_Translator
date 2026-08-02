@@ -84,13 +84,13 @@ Game_Translator/
 
 API 信息不写在源码中，由每位用户在软件内自行提供：
 
-1. 打开“翻译配置”，填写服务商的 Base URL、API Key、模型和语言。
+1. 打开“翻译配置”，填写服务商的 Base URL、API Key、模型，并选择英语或日语原文；译文固定为简体中文。
 2. 点击“认证测试”，确认地址、密钥和模型可用。
 3. 点击“安全保存”，再到“翻译测试”输入真实文本。
 
-普通配置保存在 `%LOCALAPPDATA%\GameTranslator\config.json`；API Key 单独使用 Windows DPAPI 当前用户加密，既不写入源码，也不明文写入配置文件。
+配置保存在 `%LOCALAPPDATA%\GameTranslator\config.json`；API Key 使用 Windows DPAPI 当前用户加密后与配置一次原子写入，既不写入源码，也不以明文落盘。
 
-SQLite 翻译缓存最多保留最近 10,000 条，术语表最多保存 100 条，防止长期运行后磁盘和 Prompt 无界增长。
+翻译缓存按实际内容字节限制：进程内约 32 MiB，SQLite 文本载荷约 224 MiB，主数据库硬上限 256 MiB；术语表最多保存 100 条，防止长期运行后内存、磁盘和 Prompt 无界增长。
 
 ## Unity 游戏测试
 
@@ -127,7 +127,7 @@ dotnet build Game_Translator.sln -c Release
 dotnet publish tests/RuntimeChecks/RuntimeChecks.csproj -c Release -r win-x64 --self-contained true
 ```
 
-`RuntimeChecks.exe` 需在 Windows 运行，检查桥接语言、查询解码、`Retry-After`、桥接状态通知、SQLite 缓存和术语上限。
+`RuntimeChecks.exe` 需在 Windows 运行，检查配置边界、重试/取消/非法响应、SQLite 迁移与碰撞防护、重启缓存、DPAPI 密钥和术语上限。
 
 ## 开发进度
 
@@ -136,7 +136,7 @@ dotnet publish tests/RuntimeChecks/RuntimeChecks.csproj -c Release -r win-x64 --
 | 技术方案 | 最小架构 + 验收指标 + 升级条件 | ✅ 完成 |
 | GUI 基础 | WPF 5 页面暗色主题界面 | ✅ 完成 |
 | 进程监控 | 任务栏主窗口进程、真实 CPU、工作集内存 | ✅ 完成 |
-| 真实翻译核心 | 用户 API 配置 + DPAPI + HttpClient + 有界队列 + SQLite 缓存/术语 + 手动翻译 | 🚧 已实现，待真实 API 验收 |
+| 真实翻译核心 | 用户 API 配置 + DPAPI + HttpClient + 有界队列 + SQLite 缓存/术语 + 手动翻译 | ✅ 代码完成，待真实 API 实测 |
 | Unity 纵向闭环 | XUnity 内置 CustomTranslate + 本机安全桥接 | 🚧 桥接已完成，待真实游戏验收 |
 | 翻译质量 | 术语 + 上下文 + 标记保护 | ⬜ 待开发 |
 | 兼容矩阵与发布 | Mono/IL2CPP 实测 + 安装/卸载 | ⬜ 待开发 |

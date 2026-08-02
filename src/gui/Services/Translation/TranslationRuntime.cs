@@ -5,23 +5,28 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Microsoft.Data.Sqlite;
 
 namespace GameTranslator.Gui.Services;
 
 public sealed class TranslationRuntime
 {
     private const int MaxTextLength = 20_000;
-    private const string PromptVersion = "1";
+    private const long MaxMemoryCacheBytes = 32L * 1024 * 1024;
+    private const int PromptVersion = 1;
     private readonly TranslationSettingsStore _settings;
     private readonly TranslationDatabase _database;
     private readonly Channel<TranslationWorkItem> _queue;
-    private readonly ConcurrentDictionary<string, Lazy<Task<TranslationResult>>> _inflight = new();
+    private readonly ConcurrentDictionary<string, SharedTranslation> _inflight = new();
     private readonly Dictionary<string, string> _memoryCache = [];
     private readonly object _memoryCacheLock = new();
+    private readonly string? _databaseRecoveryWarning;
+    private long _memoryCacheBytes;
     private TranslatorConfig _config;
     private long _requestCount;
     private long _completedCount;
@@ -31,14 +36,8 @@ public sealed class TranslationRuntime
     private int _queueLength;
 
     public TranslatorConfig CurrentConfig => _config;
-    public string? ConfigurationLoadError => _settings.LoadError;
+    public string? ConfigurationLoadError => _databaseRecoveryWarning ?? _settings.LoadError;
     public XUnityBridgeServer Bridge { get; }
-
-    static TranslationRuntime()
-    {
-        Debug.Assert(OpenAiCompatibleClient.GetChatEndpoint("https://example.com/v1").AbsoluteUri == "https://example.com/v1/chat/completions");
-        Debug.Assert(OpenAiCompatibleClient.GetChatEndpoint("http://localhost:1234/v1/chat/completions").AbsoluteUri == "http://localhost:1234/v1/chat/completions");
-    }
 
     public TranslationRuntime()
     {
@@ -47,7 +46,9 @@ public sealed class TranslationRuntime
             "GameTranslator");
         Directory.CreateDirectory(dataDirectory);
         _settings = new TranslationSettingsStore(dataDirectory);
-        _database = new TranslationDatabase(Path.Combine(dataDirectory, "translations.db"));
+        _database = OpenDatabaseWithRecovery(
+            Path.Combine(dataDirectory, "translations.db"),
+            out _databaseRecoveryWarning);
         _glossaryRevision = _database.LoadGlossaryRevision();
         _config = _settings.Load();
         _queue = Channel.CreateBounded<TranslationWorkItem>(new BoundedChannelOptions(128)
@@ -99,26 +100,41 @@ public sealed class TranslationRuntime
         var config = ApplyRequestedLanguages(ResolveAndValidateConfig(_config), sourceLanguage, targetLanguage);
         var started = Stopwatch.GetTimestamp();
         Interlocked.Increment(ref _requestCount);
-        var cacheKey = BuildCacheKey(text, config, Interlocked.Read(ref _glossaryRevision));
+        var cacheIdentity = BuildCacheIdentity(text, config, Interlocked.Read(ref _glossaryRevision));
+        var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cacheIdentity)));
 
         lock (_memoryCacheLock)
         {
-            if (_memoryCache.TryGetValue(cacheKey, out var memoryTranslation))
+            if (_memoryCache.TryGetValue(cacheIdentity, out var memoryTranslation))
                 return Complete(memoryTranslation, TranslationSource.MemoryCache, started, true);
         }
 
-        var persistentTranslation = await _database.ReadCacheAsync(cacheKey, cancellationToken);
+        var persistentTranslation = await _database.ReadCacheAsync(cacheKey, cacheIdentity, cancellationToken);
         if (persistentTranslation is not null)
         {
-            AddMemoryCache(cacheKey, persistentTranslation);
+            AddMemoryCache(cacheIdentity, persistentTranslation);
             return Complete(persistentTranslation, TranslationSource.PersistentCache, started, true);
         }
 
-        var lazy = _inflight.GetOrAdd(cacheKey, _ => new Lazy<Task<TranslationResult>>(
-            () => QueueTranslationAsync(cacheKey, text, config),
-            LazyThreadSafetyMode.ExecutionAndPublication));
-        var result = await lazy.Value.WaitAsync(cancellationToken);
-        return Complete(result.Text, result.Source, started, false);
+        var created = new SharedTranslation(
+            token => QueueTranslationAsync(cacheKey, cacheIdentity, text, config, token),
+            shared => RemoveInflight(cacheIdentity, shared));
+        var shared = _inflight.GetOrAdd(cacheIdentity, created);
+        if (!ReferenceEquals(shared, created)) created.Dispose();
+        shared.AddWaiter();
+        try
+        {
+            var result = await shared.Task.WaitAsync(cancellationToken);
+            return Complete(result.Text, result.Source, started, false);
+        }
+        finally
+        {
+            if (shared.RemoveWaiter())
+            {
+                RemoveInflight(cacheIdentity, shared);
+                shared.Cancel();
+            }
+        }
     }
 
     public TranslationMetrics GetMetrics() => new(
@@ -156,59 +172,53 @@ public sealed class TranslationRuntime
         string? targetLanguage) =>
         config with
         {
-            SourceLanguage = ValidateRequestedLanguage(sourceLanguage, config.SourceLanguage),
-            TargetLanguage = ValidateRequestedLanguage(targetLanguage, config.TargetLanguage)
+            SourceLanguage = TranslatorConfig.NormalizeSourceLanguage(
+                string.IsNullOrWhiteSpace(sourceLanguage) ? config.SourceLanguage : sourceLanguage),
+            TargetLanguage = TranslatorConfig.NormalizeTargetLanguage(
+                string.IsNullOrWhiteSpace(targetLanguage) ? config.TargetLanguage : targetLanguage)
         };
 
-    private TranslatorConfig ResolveAndValidateConfig(TranslatorConfig candidate)
+    private TranslatorConfig ResolveAndValidateConfig(TranslatorConfig candidate) =>
+        ValidateConfig(candidate, _config.ApiKey);
+
+    internal static TranslatorConfig ValidateConfig(TranslatorConfig candidate, string storedApiKey)
     {
-        var apiKey = string.IsNullOrWhiteSpace(candidate.ApiKey) ? _config.ApiKey : candidate.ApiKey.Trim();
+        var apiKey = (string.IsNullOrWhiteSpace(candidate.ApiKey) ? storedApiKey : candidate.ApiKey).Trim();
         var config = candidate with
         {
             BaseUrl = candidate.BaseUrl.Trim(),
             ApiKey = apiKey,
             Model = candidate.Model.Trim(),
-            SourceLanguage = candidate.SourceLanguage.Trim(),
-            TargetLanguage = candidate.TargetLanguage.Trim()
+            SourceLanguage = TranslatorConfig.NormalizeSourceLanguage(candidate.SourceLanguage),
+            TargetLanguage = TranslatorConfig.NormalizeTargetLanguage(candidate.TargetLanguage)
         };
 
+        if (config.BaseUrl.Length > 2048) throw new InvalidOperationException("Base URL 不能超过 2048 个字符。");
         _ = OpenAiCompatibleClient.GetChatEndpoint(config.BaseUrl);
         if (config.ApiKey.Length == 0) throw new InvalidOperationException("请输入 API Key。");
-        if (config.Model.Length == 0) throw new InvalidOperationException("请输入模型名称。");
-        if (config.SourceLanguage.Length == 0 || config.TargetLanguage.Length == 0)
-            throw new InvalidOperationException("请选择源语言和目标语言。");
+        if (config.ApiKey.Length > 4096) throw new InvalidOperationException("API Key 过长。");
+        if (config.Model.Length is 0 or > 200) throw new InvalidOperationException("模型名称不能为空且不能超过 200 个字符。");
         if (config.TimeoutSeconds is < 5 or > 120)
             throw new InvalidOperationException("超时时间必须在 5 到 120 秒之间。");
         return config;
     }
 
-    private static string ValidateRequestedLanguage(string? requested, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(requested)) return fallback;
-        requested = requested.Trim();
-        if (requested.Length > 32) throw new InvalidOperationException("语言代码不能超过 32 个字符。");
-        return requested;
-    }
-
-    private async Task<TranslationResult> QueueTranslationAsync(string cacheKey, string text, TranslatorConfig config)
+    private async Task<TranslationResult> QueueTranslationAsync(
+        string cacheKey,
+        string cacheIdentity,
+        string text,
+        TranslatorConfig config,
+        CancellationToken cancellationToken)
     {
         var completion = new TaskCompletionSource<TranslationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         Interlocked.Increment(ref _queueLength);
-        if (!_queue.Writer.TryWrite(new TranslationWorkItem(cacheKey, text, config, completion)))
+        if (!_queue.Writer.TryWrite(new TranslationWorkItem(cacheKey, cacheIdentity, text, config, completion, cancellationToken)))
         {
             Interlocked.Decrement(ref _queueLength);
-            _inflight.TryRemove(cacheKey, out _);
             throw new InvalidOperationException("翻译队列已满，请稍后重试。");
         }
 
-        try
-        {
-            return await completion.Task;
-        }
-        finally
-        {
-            _inflight.TryRemove(cacheKey, out _);
-        }
+        return await completion.Task;
     }
 
     private async Task RunWorkerAsync()
@@ -218,7 +228,9 @@ public sealed class TranslationRuntime
             Interlocked.Decrement(ref _queueLength);
             try
             {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(work.Config.TimeoutSeconds));
+                work.CancellationToken.ThrowIfCancellationRequested();
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(work.CancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(work.Config.TimeoutSeconds));
                 var glossary = _database.LoadGlossary();
                 if (glossary.Count > TranslationDatabase.MaxGlossaryEntries)
                     throw new InvalidOperationException($"术语表超过 {TranslationDatabase.MaxGlossaryEntries} 条，请先删除多余术语。");
@@ -230,9 +242,13 @@ public sealed class TranslationRuntime
                     $"Translate from {work.Config.SourceLanguage} to {work.Config.TargetLanguage}. " +
                     $"Return only the translated text, with no explanation.{glossaryPrompt}";
                 var translated = await OpenAiCompatibleClient.SendAsync(work.Config, work.Text, systemPrompt, timeout.Token);
-                await _database.WriteCacheAsync(work.CacheKey, work.Text, translated, work.Config, timeout.Token);
-                AddMemoryCache(work.CacheKey, translated);
+                await _database.WriteCacheAsync(work.CacheKey, work.CacheIdentity, translated, timeout.Token);
+                AddMemoryCache(work.CacheIdentity, translated);
                 work.Completion.TrySetResult(new TranslationResult(translated, TranslationSource.Api, 0));
+            }
+            catch (OperationCanceledException) when (work.CancellationToken.IsCancellationRequested)
+            {
+                work.Completion.TrySetCanceled(work.CancellationToken);
             }
             catch (Exception exception)
             {
@@ -241,30 +257,39 @@ public sealed class TranslationRuntime
         }
     }
 
-    private static string BuildCacheKey(string text, TranslatorConfig config, long glossaryRevision)
-    {
-        var data = JsonSerializer.SerializeToUtf8Bytes(new[]
+    private static string BuildCacheIdentity(string text, TranslatorConfig config, long glossaryRevision) =>
+        JsonSerializer.Serialize(new[]
         {
             text,
             config.SourceLanguage,
             config.TargetLanguage,
             config.BaseUrl,
             config.Model,
-            PromptVersion,
+            PromptVersion.ToString(),
             glossaryRevision.ToString()
         });
-        return Convert.ToHexString(SHA256.HashData(data));
-    }
 
     private void AddMemoryCache(string key, string value)
     {
         lock (_memoryCacheLock)
         {
-            // ponytail: 简单有界缓存；真实命中率不足时再换严格 LRU。
-            if (_memoryCache.Count >= 1000) _memoryCache.Clear();
+            var bytes = EstimateMemoryCacheBytes(key, value);
+            if (bytes > MaxMemoryCacheBytes) return;
+            if (_memoryCache.TryGetValue(key, out var oldValue))
+                _memoryCacheBytes -= EstimateMemoryCacheBytes(key, oldValue);
+            // ponytail: 超预算时整体清空；命中率不足时再换严格 LRU。
+            if (_memoryCacheBytes + bytes > MaxMemoryCacheBytes)
+            {
+                _memoryCache.Clear();
+                _memoryCacheBytes = 0;
+            }
             _memoryCache[key] = value;
+            _memoryCacheBytes += bytes;
         }
     }
+
+    internal static long EstimateMemoryCacheBytes(string key, string value) =>
+        64L + (key.Length + value.Length) * sizeof(char);
 
     private TranslationResult Complete(string text, TranslationSource source, long started, bool cacheHit)
     {
@@ -275,9 +300,65 @@ public sealed class TranslationRuntime
         return new TranslationResult(text, source, elapsed);
     }
 
+    private void RemoveInflight(string key, SharedTranslation shared)
+    {
+        if (_inflight.TryGetValue(key, out var current) && ReferenceEquals(current, shared))
+            _inflight.TryRemove(key, out _);
+    }
+
+    internal static TranslationDatabase OpenDatabaseWithRecovery(string path, out string? warning)
+    {
+        try
+        {
+            warning = null;
+            return new TranslationDatabase(path);
+        }
+        catch (Exception exception) when (exception is SqliteException or InvalidDataException)
+        {
+            SqliteConnection.ClearAllPools();
+            var suffix = $".backup-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
+            foreach (var file in new[] { path, path + "-wal", path + "-shm" })
+                if (File.Exists(file)) File.Move(file, file + suffix);
+            warning = $"原翻译数据库无法读取，已保留备份并建立新库：{exception.Message}";
+            return new TranslationDatabase(path);
+        }
+    }
+
+    internal sealed class SharedTranslation : IDisposable
+    {
+        private readonly CancellationTokenSource _cancellation = new();
+        private readonly Lazy<Task<TranslationResult>> _task;
+        private int _waiters;
+
+        public Task<TranslationResult> Task => _task.Value;
+
+        public SharedTranslation(
+            Func<CancellationToken, Task<TranslationResult>> work,
+            Action<SharedTranslation> completed)
+        {
+            _task = new Lazy<Task<TranslationResult>>(
+                async () =>
+                {
+                    try { return await work(_cancellation.Token); }
+                    finally { completed(this); }
+                },
+                LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        public void AddWaiter() => Interlocked.Increment(ref _waiters);
+
+        public bool RemoveWaiter() => Interlocked.Decrement(ref _waiters) == 0 && !Task.IsCompleted;
+
+        public void Cancel() => _cancellation.Cancel();
+
+        public void Dispose() => _cancellation.Dispose();
+    }
+
     private sealed record TranslationWorkItem(
         string CacheKey,
+        string CacheIdentity,
         string Text,
         TranslatorConfig Config,
-        TaskCompletionSource<TranslationResult> Completion);
+        TaskCompletionSource<TranslationResult> Completion,
+        CancellationToken CancellationToken);
 }

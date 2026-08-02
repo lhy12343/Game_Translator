@@ -7,32 +7,20 @@
             <TextBlock Text="性能监控" FontSize="24" FontWeight="Bold" Foreground="#E8E8F0"/>
             <TextBlock Text="实时监控翻译性能与系统资源" FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
         </StackPanel>
-        <UniformGrid Columns="4" Rows="2" Margin="0,0,0,20">
-            <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
-                <StackPanel>
-                    <TextBlock Text="游戏 FPS" FontSize="11" Foreground="#9090A8"/>
-                    <TextBlock Text="{Binding Fps}" FontSize="28" FontWeight="Bold" Foreground="#00B894" Margin="0,4,0,0"/>
-                </StackPanel>
-            </Border>
-            <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
-                <StackPanel>
-                    <TextBlock Text="Hook 延迟" FontSize="11" Foreground="#9090A8"/>
-                    <TextBlock Text="{Binding HookLatency}" FontSize="28" FontWeight="Bold" Foreground="#A29BFE" Margin="0,4,0,0"/>
-                </StackPanel>
-            </Border>
+        <UniformGrid Columns="3" Rows="2" Margin="0,0,0,20">
             <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
                 <StackPanel>
                     <TextBlock Text="翻译延迟" FontSize="11" Foreground="#9090A8"/>
                     <TextBlock Text="{Binding TranslationLatency}" FontSize="28" FontWeight="Bold" Foreground="#FDCB6E" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
-            <Border CornerRadius="10" Padding="20" Margin="0,0,0,8" Background="#1A1A24">
+            <Border CornerRadius="10" Padding="20" Margin="0,0,8,8" Background="#1A1A24">
                 <StackPanel>
                     <TextBlock Text="缓存命中率" FontSize="11" Foreground="#9090A8"/>
                     <TextBlock Text="{Binding CacheHitRate}" FontSize="28" FontWeight="Bold" Foreground="#00B894" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
-            <Border CornerRadius="10" Padding="20" Margin="0,0,8,0" Background="#1A1A24">
+            <Border CornerRadius="10" Padding="20" Margin="0,0,0,8" Background="#1A1A24">
                 <StackPanel>
                     <TextBlock Text="队列长度" FontSize="11" Foreground="#9090A8"/>
                     <TextBlock Text="{Binding QueueLength}" FontSize="28" FontWeight="Bold" Foreground="#E8E8F0" Margin="0,4,0,0"/>
@@ -57,7 +45,5 @@
                 </StackPanel>
             </Border>
         </UniformGrid>
-        <TextBlock Text="“—”表示对应游戏 Hook 尚未接入，不使用推算值冒充实测值。"
-                   FontSize="12" Foreground="#707088" TextWrapping="Wrap"/>
     </StackPanel>
 </UserControl>

@@ -18,12 +18,6 @@ public partial class MonitorPageViewModel : ViewModelBase
     private long _lastSampleTimestamp;
 
     [ObservableProperty]
-    private string _fps = "—";
-
-    [ObservableProperty]
-    private string _hookLatency = "—";
-
-    [ObservableProperty]
     private string _translationLatency = "—";
 
     [ObservableProperty]
@@ -40,11 +34,6 @@ public partial class MonitorPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _totalTranslated = "0";
-
-    static MonitorPageViewModel()
-    {
-        Debug.Assert(Math.Abs(CalculateCpuUsage(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 2) - 50) < 0.001);
-    }
 
     public MonitorPageViewModel(HomePageViewModel home, TranslationRuntime runtime)
     {

@@ -13,9 +13,20 @@ namespace GameTranslator.Gui.Services;
 internal static class OpenAiCompatibleClient
 {
     private const int MaxResponseBytes = 1024 * 1024;
-    private static readonly HttpClient HttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private static readonly HttpClient HttpClient = new(new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+    }) { Timeout = Timeout.InfiniteTimeSpan };
 
-    public static async Task<string> SendAsync(
+    public static Task<string> SendAsync(
+        TranslatorConfig config,
+        string userText,
+        string systemPrompt,
+        CancellationToken cancellationToken) =>
+        SendAsync(HttpClient, config, userText, systemPrompt, cancellationToken);
+
+    internal static async Task<string> SendAsync(
+        HttpClient httpClient,
         TranslatorConfig config,
         string userText,
         string systemPrompt,
@@ -39,7 +50,7 @@ internal static class OpenAiCompatibleClient
                 using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
                 request.Content = JsonContent.Create(payload);
-                using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 var body = await ReadLimitedAsync(response.Content, cancellationToken);
 
                 if (response.IsSuccessStatusCode)

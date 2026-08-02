@@ -14,8 +14,10 @@ namespace GameTranslator.Gui.Services;
 public sealed class XUnityBridgeServer : INotifyPropertyChanged
 {
     private const int Port = 52731;
+    private const int MaxConcurrentClients = 32;
     private readonly TranslationRuntime _runtime;
     private readonly string _token;
+    private readonly SemaphoreSlim _clientSlots = new(MaxConcurrentClients);
     private string _status = "正在启动";
 
     public string Url => $"http://127.0.0.1:{Port}/translate/{_token}";
@@ -50,6 +52,20 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync();
+                if (!_clientSlots.Wait(0))
+                {
+                    try
+                    {
+                        using (client)
+                        await using (var stream = client.GetStream())
+                            await WriteResponseAsync(stream, 503, "Busy", CancellationToken.None);
+                    }
+                    catch
+                    {
+                        client.Dispose();
+                    }
+                    continue;
+                }
                 _ = HandleClientAsync(client);
             }
         }
@@ -61,44 +77,45 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
 
     private async Task HandleClientAsync(TcpClient client)
     {
-        using (client)
-        await using (var stream = client.GetStream())
+        try
         {
-            try
-            {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                var target = await ReadRequestTargetAsync(stream, timeout.Token);
-                var uri = new Uri($"http://127.0.0.1{target}");
-
-                if (uri.AbsolutePath != $"/translate/{_token}")
-                {
-                    await WriteResponseAsync(stream, 404, "Not Found", timeout.Token);
-                    return;
-                }
-
-                var query = ParseQuery(uri.Query);
-                if (!query.TryGetValue("text", out var text) || string.IsNullOrWhiteSpace(text))
-                {
-                    await WriteResponseAsync(stream, 400, "Missing text", timeout.Token);
-                    return;
-                }
-
-                query.TryGetValue("from", out var sourceLanguage);
-                query.TryGetValue("to", out var targetLanguage);
-                var result = await _runtime.TranslateAsync(text, sourceLanguage, targetLanguage, timeout.Token);
-                await WriteResponseAsync(stream, 200, result.Text, timeout.Token);
-            }
-            catch (Exception exception)
+            using (client)
+            await using (var stream = client.GetStream())
             {
                 try
                 {
-                    await WriteResponseAsync(stream, 500, $"Translation failed: {exception.Message}", CancellationToken.None);
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+                    var target = await ReadRequestTargetAsync(stream, timeout.Token);
+                    var uri = new Uri($"http://127.0.0.1{target}");
+
+                    if (uri.AbsolutePath != $"/translate/{_token}")
+                    {
+                        await WriteResponseAsync(stream, 404, "Not Found", timeout.Token);
+                        return;
+                    }
+
+                    var query = ParseQuery(uri.Query);
+                    if (!query.TryGetValue("text", out var text) || string.IsNullOrWhiteSpace(text))
+                    {
+                        await WriteResponseAsync(stream, 400, "Missing text", timeout.Token);
+                        return;
+                    }
+
+                    query.TryGetValue("from", out var sourceLanguage);
+                    query.TryGetValue("to", out var targetLanguage);
+                    var result = await _runtime.TranslateAsync(text, sourceLanguage, targetLanguage, timeout.Token);
+                    await WriteResponseAsync(stream, 200, result.Text, timeout.Token);
                 }
                 catch
                 {
-                    // 客户端已断开，无需继续处理。
+                    try { await WriteResponseAsync(stream, 500, "Translation failed", CancellationToken.None); }
+                    catch { }
                 }
             }
+        }
+        finally
+        {
+            _clientSlots.Release();
         }
     }
 
@@ -137,7 +154,7 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
     private static async Task WriteResponseAsync(Stream stream, int statusCode, string body, CancellationToken cancellationToken)
     {
         var bodyBytes = Encoding.UTF8.GetBytes(body);
-        var reason = statusCode switch { 200 => "OK", 400 => "Bad Request", 404 => "Not Found", _ => "Internal Server Error" };
+        var reason = statusCode switch { 200 => "OK", 400 => "Bad Request", 404 => "Not Found", 503 => "Service Unavailable", _ => "Internal Server Error" };
         var headers = Encoding.ASCII.GetBytes(
             $"HTTP/1.1 {statusCode} {reason}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {bodyBytes.Length}\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(headers, cancellationToken);

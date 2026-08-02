@@ -31,16 +31,18 @@ internal sealed class TranslationSettingsStore
             if (stored.BaseUrl is null || stored.Model is null || stored.SourceLanguage is null || stored.TargetLanguage is null)
                 throw new InvalidDataException("配置文件缺少必要字段。");
 
-            var apiKey = File.Exists(_apiKeyPath) ? UnprotectApiKey() : "";
+            var apiKey = !string.IsNullOrWhiteSpace(stored.ApiKeyCiphertext)
+                ? UnprotectApiKey(Convert.FromBase64String(stored.ApiKeyCiphertext))
+                : File.Exists(_apiKeyPath) ? UnprotectApiKey(File.ReadAllBytes(_apiKeyPath)) : "";
             return new TranslatorConfig(
                 stored.BaseUrl,
                 apiKey,
                 stored.Model,
-                stored.SourceLanguage,
-                stored.TargetLanguage,
+                stored.SourceLanguage == TranslatorConfig.Japanese ? TranslatorConfig.Japanese : TranslatorConfig.English,
+                TranslatorConfig.Chinese,
                 stored.TimeoutSeconds);
         }
-        catch (Exception exception) when (exception is JsonException or IOException or CryptographicException or InvalidDataException)
+        catch (Exception exception) when (exception is JsonException or IOException or CryptographicException or InvalidDataException or FormatException)
         {
             LoadError = $"本地配置读取失败：{exception.Message}";
             return TranslatorConfig.Empty;
@@ -49,30 +51,34 @@ internal sealed class TranslationSettingsStore
 
     public void Save(TranslatorConfig config)
     {
-        var stored = new StoredConfig(
-            config.BaseUrl,
-            config.Model,
-            config.SourceLanguage,
-            config.TargetLanguage,
-            config.TimeoutSeconds);
-        var configJson = JsonSerializer.Serialize(stored, new JsonSerializerOptions { WriteIndented = true });
         var plainKey = Encoding.UTF8.GetBytes(config.ApiKey);
+        byte[]? protectedKey = null;
 
         try
         {
-            WriteAtomically(_apiKeyPath, ProtectedData.Protect(plainKey, DpapiEntropy, DataProtectionScope.CurrentUser));
+            protectedKey = ProtectedData.Protect(plainKey, DpapiEntropy, DataProtectionScope.CurrentUser);
+            var stored = new StoredConfig(
+                config.BaseUrl,
+                config.Model,
+                config.SourceLanguage,
+                config.TargetLanguage,
+                config.TimeoutSeconds,
+                Convert.ToBase64String(protectedKey));
+            var configJson = JsonSerializer.Serialize(stored, new JsonSerializerOptions { WriteIndented = true });
             WriteAtomically(_configPath, Encoding.UTF8.GetBytes(configJson));
+            if (File.Exists(_apiKeyPath)) File.Delete(_apiKeyPath);
             LoadError = null;
         }
         finally
         {
             CryptographicOperations.ZeroMemory(plainKey);
+            if (protectedKey is not null) CryptographicOperations.ZeroMemory(protectedKey);
         }
     }
 
-    private string UnprotectApiKey()
+    private static string UnprotectApiKey(byte[] protectedKey)
     {
-        var plainKey = ProtectedData.Unprotect(File.ReadAllBytes(_apiKeyPath), DpapiEntropy, DataProtectionScope.CurrentUser);
+        var plainKey = ProtectedData.Unprotect(protectedKey, DpapiEntropy, DataProtectionScope.CurrentUser);
         try
         {
             return Encoding.UTF8.GetString(plainKey);
@@ -95,5 +101,6 @@ internal sealed class TranslationSettingsStore
         string? Model,
         string? SourceLanguage,
         string? TargetLanguage,
-        int TimeoutSeconds);
+        int TimeoutSeconds,
+        string? ApiKeyCiphertext);
 }

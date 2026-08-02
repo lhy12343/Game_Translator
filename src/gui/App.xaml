@@ -4,18 +4,13 @@
              StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
-            <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <!-- 调色板 -->
-            <SolidColorBrush x:Key="BgPrimary" Color="#0F0F14"/>
-            <SolidColorBrush x:Key="BgSecondary" Color="#1A1A24"/>
             <SolidColorBrush x:Key="BgTertiary" Color="#242430"/>
             <SolidColorBrush x:Key="AccentPrimary" Color="#6C5CE7"/>
             <SolidColorBrush x:Key="AccentSecondary" Color="#A29BFE"/>
             <SolidColorBrush x:Key="TextPrimary" Color="#E8E8F0"/>
             <SolidColorBrush x:Key="TextSecondary" Color="#9090A8"/>
             <SolidColorBrush x:Key="BorderSubtle" Color="#2A2A38"/>
-            <SolidColorBrush x:Key="SuccessGreen" Color="#00B894"/>
-            <SolidColorBrush x:Key="WarningOrange" Color="#FDCB6E"/>
 
             <!-- 全局字体 -->
             <FontFamily x:Key="AppFont">Microsoft YaHei UI, Segoe UI, sans-serif</FontFamily>

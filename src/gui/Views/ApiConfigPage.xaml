@@ -37,7 +37,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Margin="0,0,12,0">
                     <TextBlock Text="目标语言" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
-                    <ComboBox ItemsSource="{Binding TargetLanguages}" SelectedItem="{Binding TargetLanguage}" HorizontalAlignment="Stretch"/>
+                    <TextBox Text="{Binding TargetLanguage}" IsReadOnly="True"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="连接状态" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
