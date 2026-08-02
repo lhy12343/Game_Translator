@@ -1,4 +1,9 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -10,49 +15,93 @@ public partial class HomePageViewModel : ViewModelBase
     private string _selectedProcess = "未选择进程";
 
     [ObservableProperty]
-    private bool _isHooked;
+    private string _selectedProcessId = "-";
 
     [ObservableProperty]
-    private string _gameEngine = "-";
+    private string _selectedWindowTitle = "-";
 
     [ObservableProperty]
-    private string _translateStatus = "空闲";
+    private string _monitorStatus = "空闲";
 
     [ObservableProperty]
-    private int _translatedCount;
+    private ProcessItem? _selectedProcessItem;
 
-    [ObservableProperty]
-    private int _cacheHitCount;
+    public int? ActiveProcessId { get; private set; }
 
-    [ObservableProperty]
-    private string? _selectedProcessItem;
+    public ObservableCollection<ProcessItem> ProcessList { get; } = [];
 
-    public ObservableCollection<string> ProcessList { get; } = new()
+    public HomePageViewModel()
     {
-        "game.exe  (PID: 12345)  - Unity",
-        "visualnovel.exe  (PID: 67890)  - Renpy",
-        "rpgmaker_game.exe  (PID: 11111)  - RPGMaker",
-    };
-
-    [RelayCommand]
-    private void RefreshProcesses() { }
-
-    [RelayCommand]
-    private void Attach()
-    {
-        if (SelectedProcessItem == null) return;
-        SelectedProcess = SelectedProcessItem;
-        IsHooked = true;
-        TranslateStatus = "已连接";
-        GameEngine = "Unity";
+        RefreshProcesses();
     }
 
     [RelayCommand]
-    private void Detach()
+    private void RefreshProcesses()
     {
-        IsHooked = false;
-        TranslateStatus = "空闲";
-        GameEngine = "-";
+        var selectedId = SelectedProcessItem?.Id;
+        var items = new List<ProcessItem>();
+
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                if (process.Id == Environment.ProcessId) continue;
+                if (process.MainWindowHandle == IntPtr.Zero) continue;
+                items.Add(new ProcessItem(process.Id, $"{process.ProcessName}.exe", process.MainWindowTitle));
+            }
+            catch (InvalidOperationException)
+            {
+                // 进程在枚举期间退出，跳过即可。
+            }
+            catch (Win32Exception)
+            {
+                // 系统进程可能拒绝读取，跳过即可。
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        ProcessList.Clear();
+        foreach (var item in items
+                     .OrderBy(item => item.ExecutableName, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.Id))
+        {
+            ProcessList.Add(item);
+        }
+
+        SelectedProcessItem = ProcessList.FirstOrDefault(item => item.Id == selectedId);
+    }
+
+    [RelayCommand]
+    private void StartMonitoring()
+    {
+        if (SelectedProcessItem is null) return;
+
+        ActiveProcessId = SelectedProcessItem.Id;
+        SelectedProcess = SelectedProcessItem.ExecutableName;
+        SelectedProcessId = SelectedProcessItem.Id.ToString();
+        SelectedWindowTitle = string.IsNullOrWhiteSpace(SelectedProcessItem.WindowTitle)
+            ? "无窗口标题"
+            : SelectedProcessItem.WindowTitle;
+        MonitorStatus = "监控中";
+    }
+
+    [RelayCommand]
+    private void StopMonitoring()
+    {
+        ActiveProcessId = null;
+        MonitorStatus = "空闲";
         SelectedProcess = "未选择进程";
+        SelectedProcessId = "-";
+        SelectedWindowTitle = "-";
     }
+}
+
+public sealed record ProcessItem(int Id, string ExecutableName, string WindowTitle)
+{
+    public override string ToString() => string.IsNullOrWhiteSpace(WindowTitle)
+        ? $"{ExecutableName}  (PID: {Id})"
+        : $"{ExecutableName}  (PID: {Id})  - {WindowTitle}";
 }

@@ -1,18 +1,17 @@
+using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GameTranslator.Gui.Services;
 
 namespace GameTranslator.Gui.ViewModels;
 
 public partial class GlossaryPageViewModel : ViewModelBase
 {
-    public ObservableCollection<GlossaryEntry> Entries { get; } = new()
-    {
-        new("サクラ", "樱花", "角色名"),
-        new("タケル", "武", "角色名"),
-        new("東京", "东京", "地名"),
-        new("魔法", "魔法", "通用"),
-    };
+    private readonly TranslationRuntime _runtime;
+
+    public ObservableCollection<GlossaryEntry> Entries { get; } = [];
+    public string[] Categories { get; } = ["通用", "角色名", "地名", "物品", "技能"];
 
     [ObservableProperty]
     private string _newSource = "";
@@ -23,27 +22,44 @@ public partial class GlossaryPageViewModel : ViewModelBase
     [ObservableProperty]
     private string _newCategory = "通用";
 
+    [ObservableProperty]
+    private string _status = "";
+
+    public GlossaryPageViewModel(TranslationRuntime runtime)
+    {
+        _runtime = runtime;
+        foreach (var entry in runtime.LoadGlossary()) Entries.Add(entry);
+    }
+
     [RelayCommand]
     private void AddEntry()
     {
-        if (string.IsNullOrWhiteSpace(NewSource) || string.IsNullOrWhiteSpace(NewTarget))
-            return;
-        Entries.Add(new GlossaryEntry(NewSource, NewTarget, NewCategory));
-        NewSource = "";
-        NewTarget = "";
+        try
+        {
+            Entries.Add(_runtime.AddGlossary(NewSource, NewTarget, NewCategory));
+            NewSource = "";
+            NewTarget = "";
+            Status = "术语已保存";
+        }
+        catch (Exception exception)
+        {
+            Status = exception.Message;
+        }
     }
-}
 
-public class GlossaryEntry
-{
-    public string Source { get; }
-    public string Target { get; }
-    public string Category { get; }
-
-    public GlossaryEntry(string source, string target, string category)
+    [RelayCommand]
+    private void DeleteEntry(GlossaryEntry? entry)
     {
-        Source = source;
-        Target = target;
-        Category = category;
+        if (entry is null) return;
+        try
+        {
+            _runtime.DeleteGlossary(entry.Id);
+            Entries.Remove(entry);
+            Status = "术语已删除";
+        }
+        catch (Exception exception)
+        {
+            Status = $"删除失败：{exception.Message}";
+        }
     }
 }

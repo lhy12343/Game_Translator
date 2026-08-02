@@ -26,18 +26,13 @@
                         <TextBox Text="{Binding NewTarget}" Width="160"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,8,0" VerticalAlignment="Bottom">
-                        <ComboBox SelectedItem="{Binding NewCategory}" Width="100">
-                            <ComboBoxItem Content="通用"/>
-                            <ComboBoxItem Content="角色名"/>
-                            <ComboBoxItem Content="地名"/>
-                            <ComboBoxItem Content="物品"/>
-                            <ComboBoxItem Content="技能"/>
-                        </ComboBox>
+                        <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding NewCategory}" Width="100"/>
                     </StackPanel>
                     <Button Grid.Column="3" Content="➕ 添加" Command="{Binding AddEntryCommand}" Style="{StaticResource BtnPrimary}" VerticalAlignment="Bottom"/>
                 </Grid>
             </StackPanel>
         </Border>
+        <TextBlock Text="{Binding Status}" FontSize="12" Foreground="#A29BFE" Margin="0,0,0,12"/>
         <Border CornerRadius="10" Background="#1A1A24" Padding="4">
             <StackPanel>
                 <Grid Margin="12,10,12,6">
@@ -67,7 +62,9 @@
                                 <Border Grid.Column="2" CornerRadius="4" Padding="8,2" Background="#242430" HorizontalAlignment="Left" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Category}" FontSize="11" Foreground="#9090A8"/>
                                 </Border>
-                                <Button Grid.Column="3" Content="🗑" FontSize="14" Style="{StaticResource BtnGhost}" Padding="8,2"/>
+                                <Button Grid.Column="3" Content="🗑" FontSize="14" Style="{StaticResource BtnGhost}" Padding="8,2"
+                                        Command="{Binding DataContext.DeleteEntryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"/>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

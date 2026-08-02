@@ -7,7 +7,7 @@
         <!-- 标题 -->
         <StackPanel Margin="0,0,0,20">
             <TextBlock Text="游戏进程" FontSize="24" FontWeight="Bold" Foreground="#E8E8F0"/>
-            <TextBlock Text="选择目标游戏进程并注入翻译 Hook" FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
+            <TextBlock Text="只显示拥有主窗口、通常位于任务栏的应用" FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
         </StackPanel>
 
         <!-- 状态卡片 -->
@@ -21,23 +21,23 @@
             </Border>
             <Border CornerRadius="10" Padding="16" Margin="0,0,8,0" Background="#1A1A24">
                 <StackPanel>
-                    <TextBlock Text="引擎" FontSize="11" Foreground="#9090A8"/>
-                    <TextBlock Text="{Binding GameEngine}" FontSize="13" FontWeight="SemiBold"
+                    <TextBlock Text="PID" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding SelectedProcessId}" FontSize="13" FontWeight="SemiBold"
                                Foreground="#A29BFE" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
             <Border CornerRadius="10" Padding="16" Margin="0,0,8,0" Background="#1A1A24">
                 <StackPanel>
                     <TextBlock Text="状态" FontSize="11" Foreground="#9090A8"/>
-                    <TextBlock Text="{Binding TranslateStatus}" FontSize="13" FontWeight="SemiBold"
+                    <TextBlock Text="{Binding MonitorStatus}" FontSize="13" FontWeight="SemiBold"
                                Foreground="#00B894" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
             <Border CornerRadius="10" Padding="16" Background="#1A1A24">
                 <StackPanel>
-                    <TextBlock Text="已翻译" FontSize="11" Foreground="#9090A8"/>
-                    <TextBlock Text="{Binding TranslatedCount}" FontSize="13" FontWeight="SemiBold"
-                               Foreground="#E8E8F0" Margin="0,4,0,0"/>
+                    <TextBlock Text="窗口标题" FontSize="11" Foreground="#9090A8"/>
+                    <TextBlock Text="{Binding SelectedWindowTitle}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="#E8E8F0" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
         </UniformGrid>
@@ -50,7 +50,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="进程列表" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+                    <TextBlock Grid.Column="0" Text="任务栏应用" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0"/>
                     <Button Grid.Column="1" Content="🔄 刷新" Style="{StaticResource BtnGhost}"
                             Command="{Binding RefreshProcessesCommand}" FontSize="12" Padding="12,4"/>
                 </Grid>
@@ -62,8 +62,8 @@
 
         <!-- 操作按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-            <Button Content="🔗 注入" Command="{Binding AttachCommand}" Style="{StaticResource BtnPrimary}"/>
-            <Button Content="⏹ 断开" Command="{Binding DetachCommand}" Style="{StaticResource BtnSecondary}" Margin="12,0,0,0"/>
+            <Button Content="▶ 开始监控" Command="{Binding StartMonitoringCommand}" Style="{StaticResource BtnPrimary}"/>
+            <Button Content="⏹ 停止监控" Command="{Binding StopMonitoringCommand}" Style="{StaticResource BtnSecondary}" Margin="12,0,0,0"/>
         </StackPanel>
     </StackPanel>
 </UserControl>
