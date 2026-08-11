@@ -28,7 +28,7 @@
             <StackPanel>
                 <TextBlock Text="译文" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
                 <TextBox Text="{Binding TranslatedText}" IsReadOnly="True"
-                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120"
+                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120"
                          VerticalContentAlignment="Top"/>
             </StackPanel>
         </Border>

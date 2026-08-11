@@ -45,5 +45,17 @@
                 </StackPanel>
             </Border>
         </UniformGrid>
+        <Border CornerRadius="10" Padding="20" Background="#1A1A24">
+            <StackPanel>
+                <TextBlock Text="翻译缓存目录" FontSize="11" Foreground="#9090A8"/>
+                <TextBox Text="{Binding CacheDirectory, Mode=OneWay}" IsReadOnly="True" Margin="0,8,0,10"
+                         Padding="10,7" Background="#111118" Foreground="#E8E8F0" BorderBrush="#303040"/>
+                <DockPanel>
+                    <Button Content="清除全部缓存" Command="{Binding ClearCacheCommand}" DockPanel.Dock="Right"
+                            Padding="16,7" Background="#D65A5A" Foreground="White" BorderThickness="0"/>
+                    <TextBlock Text="{Binding CacheStatus}" VerticalAlignment="Center" Foreground="#9090A8"/>
+                </DockPanel>
+            </StackPanel>
+        </Border>
     </StackPanel>
 </UserControl>

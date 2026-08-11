@@ -51,5 +51,3 @@ public sealed record TranslationMetrics(
     long CacheHitCount,
     long LastLatencyMilliseconds,
     int QueueLength);
-
-public sealed record GlossaryEntry(long Id, string Source, string Target, string Category);

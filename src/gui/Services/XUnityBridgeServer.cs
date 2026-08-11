@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,12 +16,14 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
 {
     private const int Port = 52731;
     private const int MaxConcurrentClients = 32;
+    private const int MaxRequestBodyBytes = TranslationRuntime.MaxBatchPayloadBytes;
     private readonly TranslationRuntime _runtime;
     private readonly string _token;
     private readonly SemaphoreSlim _clientSlots = new(MaxConcurrentClients);
-    private string _status = "正在启动";
+    private string _status = "未启动";
 
     public string Url => $"http://127.0.0.1:{Port}/translate/{_token}";
+    public string GetUrl(string gameId) => $"{Url}/{Uri.EscapeDataString(gameId)}";
     public string Status
     {
         get => _status;
@@ -38,6 +41,12 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
     {
         _runtime = runtime;
         _token = GetOrCreateToken(Path.Combine(dataDirectory, "bridge-token.txt"));
+    }
+
+    public void Start()
+    {
+        if (Status != "未启动") return;
+        Status = "正在启动";
         _ = RunAsync();
     }
 
@@ -85,25 +94,41 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
                 try
                 {
                     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                    var target = await ReadRequestTargetAsync(stream, timeout.Token);
-                    var uri = new Uri($"http://127.0.0.1{target}");
+                    var request = await ReadRequestAsync(stream, timeout.Token);
+                    var uri = new Uri($"http://127.0.0.1{request.Target}");
 
-                    if (uri.AbsolutePath != $"/translate/{_token}")
+                    var pathPrefix = $"/translate/{_token}/";
+                    if (!uri.AbsolutePath.StartsWith(pathPrefix, StringComparison.Ordinal)
+                        || uri.AbsolutePath.Length == pathPrefix.Length)
                     {
                         await WriteResponseAsync(stream, 404, "Not Found", timeout.Token);
                         return;
                     }
+                    var gameId = Uri.UnescapeDataString(uri.AbsolutePath[pathPrefix.Length..]);
 
                     var query = ParseQuery(uri.Query);
+                    query.TryGetValue("from", out var sourceLanguage);
+                    query.TryGetValue("to", out var targetLanguage);
+                    if (request.Method == "POST")
+                    {
+                        var texts = DecodeBatch(request.Body);
+                        RuntimeLog.Write($"批量请求：{texts.Length} 条，正文 {request.Body.Length} 字符");
+                        if (texts.Length is 0 or > TranslationRuntime.MaxBatchSize || texts.Any(string.IsNullOrWhiteSpace))
+                            throw new InvalidDataException($"Batch must contain 1 to {TranslationRuntime.MaxBatchSize} texts");
+                        var translations = await _runtime.TranslateBatchAsync(texts, gameId, sourceLanguage, targetLanguage, timeout.Token);
+                        RuntimeLog.Write($"批量完成：{translations.Length} 条");
+                        await WriteResponseAsync(stream, 200, EncodeBatch(translations), timeout.Token);
+                        return;
+                    }
+
                     if (!query.TryGetValue("text", out var text) || string.IsNullOrWhiteSpace(text))
                     {
                         await WriteResponseAsync(stream, 400, "Missing text", timeout.Token);
                         return;
                     }
 
-                    query.TryGetValue("from", out var sourceLanguage);
-                    query.TryGetValue("to", out var targetLanguage);
-                    var result = await _runtime.TranslateAsync(text, sourceLanguage, targetLanguage, timeout.Token);
+                    var result = await _runtime.TranslateAsync(text, gameId, sourceLanguage, targetLanguage, timeout.Token);
+                    RuntimeLog.Write("单条请求完成");
                     await WriteResponseAsync(stream, 200, result.Text, timeout.Token);
                 }
                 catch
@@ -119,26 +144,52 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
         }
     }
 
-    private static async Task<string> ReadRequestTargetAsync(Stream stream, CancellationToken cancellationToken)
+    private static async Task<(string Method, string Target, string Body)> ReadRequestAsync(
+        Stream stream,
+        CancellationToken cancellationToken)
     {
         using var request = new MemoryStream();
         var buffer = new byte[4096];
+        var headerEnd = -1;
         while (request.Length < 65_536)
         {
             var count = await stream.ReadAsync(buffer, cancellationToken);
             if (count == 0) throw new InvalidDataException("Incomplete request");
             request.Write(buffer, 0, count);
             var bytes = request.GetBuffer().AsSpan(0, (int)request.Length);
-            if (bytes.IndexOf("\r\n\r\n"u8) >= 0) break;
+            headerEnd = bytes.IndexOf("\r\n\r\n"u8);
+            if (headerEnd >= 0) break;
         }
-        if (request.Length >= 65_536) throw new InvalidDataException("Request headers are too long");
+        if (headerEnd < 0) throw new InvalidDataException("Request headers are too long");
 
-        var headerText = Encoding.ASCII.GetString(request.GetBuffer(), 0, (int)request.Length);
+        var headerText = Encoding.ASCII.GetString(request.GetBuffer(), 0, headerEnd);
         var requestLine = headerText.Split("\r\n", 2, StringSplitOptions.None)[0];
         var parts = requestLine.Split(' ');
-        if (parts.Length != 3 || parts[0] != "GET") throw new InvalidDataException("Only GET is supported");
-        return parts[1];
+        if (parts.Length != 3 || parts[0] is not ("GET" or "POST"))
+            throw new InvalidDataException("Only GET and POST are supported");
+
+        var contentLength = 0;
+        foreach (var line in headerText.Split("\r\n"))
+            if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)
+                && !int.TryParse(line[15..].Trim(), out contentLength))
+                throw new InvalidDataException("Invalid Content-Length");
+        if (contentLength is < 0 or > MaxRequestBodyBytes) throw new InvalidDataException("Request body is too long");
+
+        var bodyOffset = headerEnd + 4;
+        while (request.Length - bodyOffset < contentLength)
+        {
+            var count = await stream.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, contentLength - (int)(request.Length - bodyOffset))), cancellationToken);
+            if (count == 0) throw new InvalidDataException("Incomplete request body");
+            request.Write(buffer, 0, count);
+        }
+        return (parts[0], parts[1], Encoding.UTF8.GetString(request.GetBuffer(), bodyOffset, contentLength));
     }
+
+    internal static string EncodeBatch(IEnumerable<string> texts) =>
+        string.Join('\n', texts.Select(text => Convert.ToBase64String(Encoding.UTF8.GetBytes(text))));
+
+    internal static string[] DecodeBatch(string body) =>
+        body.Split('\n').Select(value => Encoding.UTF8.GetString(Convert.FromBase64String(value.TrimEnd('\r')))).ToArray();
 
     internal static Dictionary<string, string> ParseQuery(string query)
     {

@@ -34,13 +34,13 @@ public partial class ApiConfigPageViewModel : ViewModelBase
     private string _connectionStatus;
 
     public IReadOnlyList<string> SourceLanguages => TranslatorConfig.SupportedSourceLanguages;
-    public XUnityBridgeServer GameBridge => _runtime.Bridge;
 
     public ApiConfigPageViewModel(TranslationRuntime runtime)
     {
         _runtime = runtime;
         var config = runtime.CurrentConfig;
         _baseUrl = config.BaseUrl;
+        _apiKey = config.ApiKey;
         _modelName = config.Model;
         _sourceLanguage = config.SourceLanguage == TranslatorConfig.Japanese
             ? TranslatorConfig.Japanese
@@ -76,7 +76,6 @@ public partial class ApiConfigPageViewModel : ViewModelBase
         try
         {
             _runtime.SaveConfig(CreateConfig());
-            ApiKey = "";
             ConnectionStatus = "配置已安全保存";
         }
         catch (Exception exception)

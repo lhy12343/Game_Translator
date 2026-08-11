@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -10,10 +9,9 @@ namespace GameTranslator.Gui.Services;
 
 internal sealed class TranslationDatabase
 {
-    internal const int MaxGlossaryEntries = 100;
     internal const long DefaultMaxCachePayloadBytes = 224L * 1024 * 1024;
     private const long MaxDatabaseBytes = 256L * 1024 * 1024;
-    private const int SchemaVersion = 3;
+    private const int SchemaVersion = 4;
     private readonly string _connectionString;
     private readonly long _maxCachePayloadBytes;
 
@@ -25,60 +23,6 @@ internal sealed class TranslationDatabase
         _connectionString = new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString();
         _maxCachePayloadBytes = maxCachePayloadBytes;
         Initialize();
-    }
-
-    public IReadOnlyList<GlossaryEntry> LoadGlossary()
-    {
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, source, target, category FROM glossary ORDER BY id";
-        using var reader = command.ExecuteReader();
-        var entries = new List<GlossaryEntry>();
-        while (reader.Read())
-            entries.Add(new GlossaryEntry(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
-        return entries;
-    }
-
-    public GlossaryEntry AddGlossary(string source, string target, string category)
-    {
-        using var connection = OpenConnection();
-        using var transaction = connection.BeginTransaction();
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = "SELECT COUNT(*) FROM glossary";
-        if ((long)(command.ExecuteScalar() ?? 0L) >= MaxGlossaryEntries)
-            throw new InvalidOperationException($"术语表最多保存 {MaxGlossaryEntries} 条，请先删除不再使用的术语。");
-
-        command.CommandText = "INSERT INTO glossary (source, target, category) VALUES ($source, $target, $category); SELECT last_insert_rowid();";
-        command.Parameters.AddWithValue("$source", source);
-        command.Parameters.AddWithValue("$target", target);
-        command.Parameters.AddWithValue("$category", category);
-        var id = (long)(command.ExecuteScalar() ?? throw new InvalidOperationException("术语保存失败。"));
-        IncrementGlossaryRevision(connection, transaction);
-        transaction.Commit();
-        return new GlossaryEntry(id, source, target, category);
-    }
-
-    public bool DeleteGlossary(long id)
-    {
-        using var connection = OpenConnection();
-        using var transaction = connection.BeginTransaction();
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = "DELETE FROM glossary WHERE id = $id";
-        command.Parameters.AddWithValue("$id", id);
-        if (command.ExecuteNonQuery() == 0) return false;
-        IncrementGlossaryRevision(connection, transaction);
-        transaction.Commit();
-        return true;
-    }
-
-    public long LoadGlossaryRevision()
-    {
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT value FROM app_metadata WHERE key = 'glossary_revision'";
-        return (long)(command.ExecuteScalar() ?? 0L);
     }
 
     public async Task<string?> ReadCacheAsync(
@@ -161,6 +105,24 @@ internal sealed class TranslationDatabase
         transaction.Commit();
     }
 
+    public async Task ClearCacheAsync(CancellationToken cancellationToken)
+    {
+        await using (var connection = new SqliteConnection(_connectionString))
+        {
+            await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM translation_cache; UPDATE app_metadata SET value = 0 WHERE key = 'cache_payload_bytes'";
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await using var vacuumConnection = new SqliteConnection(_connectionString);
+        await vacuumConnection.OpenAsync(cancellationToken);
+        await using var vacuum = vacuumConnection.CreateCommand();
+        vacuum.CommandText = "VACUUM";
+        await vacuum.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private SqliteConnection OpenConnection()
     {
         var connection = new SqliteConnection(_connectionString);
@@ -189,22 +151,15 @@ internal sealed class TranslationDatabase
                 last_hit_utc TEXT NOT NULL,
                 payload_bytes INTEGER NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS glossary (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source TEXT NOT NULL,
-                target TEXT NOT NULL,
-                category TEXT NOT NULL
-            );
             CREATE TABLE IF NOT EXISTS app_metadata (
                 key TEXT PRIMARY KEY,
                 value INTEGER NOT NULL
             );
-            INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('glossary_revision', 0);
             INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('cache_payload_bytes', 0);
             """;
         command.ExecuteNonQuery();
 
-        if (version < SchemaVersion)
+        if (version < 3)
         {
             AddColumnIfMissing(connection, transaction, "cache_identity", "TEXT NOT NULL DEFAULT ''");
             AddColumnIfMissing(connection, transaction, "last_hit_utc", "TEXT NOT NULL DEFAULT ''");
@@ -236,14 +191,24 @@ internal sealed class TranslationDatabase
             command.Parameters.AddWithValue("$migrationTime", DateTimeOffset.UtcNow.ToString("O"));
             command.ExecuteNonQuery();
         }
+        if (version < 4)
+        {
+            command.Parameters.Clear();
+            command.CommandText = """
+                DROP TABLE IF EXISTS glossary;
+                DELETE FROM app_metadata WHERE key = 'glossary_revision';
+                PRAGMA user_version = 4;
+                """;
+            command.ExecuteNonQuery();
+        }
         command.Parameters.Clear();
         command.CommandText = "CREATE INDEX IF NOT EXISTS ix_translation_cache_last_hit ON translation_cache(last_hit_utc)";
         command.ExecuteNonQuery();
         transaction.Commit();
+        command.Transaction = null;
 
         if (version < SchemaVersion)
         {
-            command.Transaction = null;
             command.CommandText = "VACUUM";
             command.ExecuteNonQuery();
         }
@@ -269,11 +234,4 @@ internal sealed class TranslationDatabase
         command.ExecuteNonQuery();
     }
 
-    private static void IncrementGlossaryRevision(SqliteConnection connection, SqliteTransaction transaction)
-    {
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = "UPDATE app_metadata SET value = value + 1 WHERE key = 'glossary_revision'";
-        command.ExecuteNonQuery();
-    }
 }

@@ -56,8 +56,7 @@
                 <Border Grid.Column="0" Background="#1A1A24" BorderBrush="#2A2A38" BorderThickness="0,0,1,0">
                     <ListBox ItemsSource="{Binding NavItems}"
                              SelectedItem="{Binding SelectedNav}"
-                             Background="Transparent" BorderThickness="0" Padding="8,12"
-                             Margin="0,0,0,0">
+                             Padding="8,12">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="12,10">
@@ -85,9 +84,6 @@
                                 </DataTemplate>
                                 <DataTemplate DataType="{x:Type vm:MonitorPageViewModel}">
                                     <v:MonitorPage/>
-                                </DataTemplate>
-                                <DataTemplate DataType="{x:Type vm:GlossaryPageViewModel}">
-                                    <v:GlossaryPage/>
                                 </DataTemplate>
                             </ContentControl.Resources>
                         </ContentControl>

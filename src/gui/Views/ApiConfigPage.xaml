@@ -3,22 +3,22 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Padding="32,24">
     <StackPanel Margin="0,0,0,24">
-
         <StackPanel Margin="0,0,0,20">
             <TextBlock Text="翻译 API 配置" FontSize="24" FontWeight="Bold" Foreground="#E8E8F0"/>
-            <TextBlock Text="由用户提供 OpenAI 兼容 API；密钥使用 Windows 当前用户加密保存" FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
+            <TextBlock Text="由用户提供 OpenAI 兼容 API；密钥使用 Windows 当前用户加密保存"
+                       FontSize="13" Foreground="#9090A8" Margin="0,4,0,0"/>
         </StackPanel>
 
         <Border CornerRadius="10" Background="#1A1A24" Padding="24" Margin="0,0,0,20">
             <StackPanel>
                 <TextBlock Text="Base URL" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
                 <TextBox Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
-                <TextBlock Text="例如：https://服务商地址/v1；也兼容完整的 /chat/completions 地址" FontSize="11" Foreground="#707088" Margin="0,0,0,16"/>
+                <TextBlock Text="例如：https://服务商地址/v1；也兼容完整的 /chat/completions 地址"
+                           FontSize="11" Foreground="#707088" Margin="0,0,0,16"/>
                 <TextBlock Text="API Key" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
-                <PasswordBox x:Name="ApiKeyBox" PasswordChanged="OnApiKeyChanged"
-                             Background="#242430" Foreground="#E8E8F0" BorderBrush="#2A2A38"
-                             BorderThickness="1" Padding="10,8" Margin="0,0,0,4"/>
-                <TextBlock Text="留空会沿用已加密保存的密钥；界面不会回显旧密钥" FontSize="11" Foreground="#707088" Margin="0,0,0,16"/>
+                <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                <TextBlock Text="密钥会使用 Windows 当前用户加密保存，并在本机界面明文显示"
+                           FontSize="11" Foreground="#707088" Margin="0,0,0,16"/>
                 <TextBlock Text="模型名称" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
                 <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
@@ -33,7 +33,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Margin="0,0,12,0">
                     <TextBlock Text="源语言" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
-                    <ComboBox ItemsSource="{Binding SourceLanguages}" SelectedItem="{Binding SourceLanguage}" HorizontalAlignment="Stretch"/>
+                    <ComboBox ItemsSource="{Binding SourceLanguages}" SelectedItem="{Binding SourceLanguage}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Margin="0,0,12,0">
                     <TextBlock Text="目标语言" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
@@ -44,7 +44,8 @@
                     <Border CornerRadius="6" Padding="10,8" Background="#242430">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="8" Height="8" Fill="#FDCB6E" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding ConnectionStatus}" FontSize="13" Foreground="#E8E8F0" Margin="8,0,0,0"/>
+                            <TextBlock Text="{Binding ConnectionStatus}" FontSize="13" Foreground="#E8E8F0"
+                                       Margin="8,0,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -55,24 +56,16 @@
             <StackPanel>
                 <TextBlock Text="请求超时" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,12"/>
                 <TextBlock Text="秒（5–120）" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
-                <Slider Value="{Binding TimeoutSeconds}" Minimum="5" Maximum="120" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,0,0,4"/>
+                <Slider Value="{Binding TimeoutSeconds}" Minimum="5" Maximum="120"
+                        TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,0,0,4"/>
                 <TextBlock Text="{Binding TimeoutSeconds, StringFormat={}{0} 秒}" FontSize="12" Foreground="#A29BFE"/>
-            </StackPanel>
-        </Border>
-
-        <Border CornerRadius="10" Background="#1A1A24" Padding="24" Margin="0,0,0,20">
-            <StackPanel>
-                <TextBlock Text="XUnity 游戏桥接地址" FontSize="15" FontWeight="SemiBold" Foreground="#E8E8F0" Margin="0,0,0,8"/>
-                <TextBox Text="{Binding GameBridge.Url, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6"/>
-                <TextBlock FontSize="11" Foreground="#707088" TextWrapping="Wrap">
-                    <Run Text="状态："/><Run Text="{Binding GameBridge.Status}"/><Run Text="。将此地址填入 XUnity 的 [Custom] Url。"/>
-                </TextBlock>
             </StackPanel>
         </Border>
 
         <StackPanel Orientation="Horizontal">
             <Button Content="🔌 认证测试" Command="{Binding TestConnectionCommand}" Style="{StaticResource BtnPrimary}"/>
-            <Button Content="💾 安全保存" Command="{Binding SaveConfigCommand}" Style="{StaticResource BtnSecondary}" Margin="12,0,0,0"/>
+            <Button Content="💾 安全保存" Command="{Binding SaveConfigCommand}"
+                    Style="{StaticResource BtnSecondary}" Margin="12,0,0,0"/>
         </StackPanel>
     </StackPanel>
 </UserControl>

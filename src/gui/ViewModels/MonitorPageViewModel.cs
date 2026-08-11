@@ -1,8 +1,11 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GameTranslator.Gui.Services;
 
 namespace GameTranslator.Gui.ViewModels;
@@ -35,6 +38,11 @@ public partial class MonitorPageViewModel : ViewModelBase
     [ObservableProperty]
     private string _totalTranslated = "0";
 
+    public string CacheDirectory => _runtime.CacheDirectory;
+
+    [ObservableProperty]
+    private string _cacheStatus = "缓存存放在软件目录，可随时清除";
+
     public MonitorPageViewModel(HomePageViewModel home, TranslationRuntime runtime)
     {
         _home = home;
@@ -49,6 +57,27 @@ public partial class MonitorPageViewModel : ViewModelBase
             SampleTranslation();
         };
         _timer.Start();
+    }
+
+    [RelayCommand]
+    private async Task ClearCacheAsync()
+    {
+        try
+        {
+            if (_home.IsGameRunning)
+            {
+                CacheStatus = "请先关闭游戏；运行中的 XUnity 会把内存缓存重新写回";
+                return;
+            }
+            CacheStatus = "正在清除缓存…";
+            await _runtime.ClearCacheAsync(CancellationToken.None);
+            CacheStatus = "缓存已彻底清除，请重新启动游戏";
+            SampleTranslation();
+        }
+        catch (Exception exception)
+        {
+            CacheStatus = $"清除失败：{exception.Message}";
+        }
     }
 
     private void SampleTranslation()
@@ -68,7 +97,7 @@ public partial class MonitorPageViewModel : ViewModelBase
 
     private void SampleProcess()
     {
-        var processId = _home.ActiveProcessId;
+        var processId = _home.RunningProcessId;
         if (processId is null)
         {
             ResetProcessMetrics();

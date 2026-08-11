@@ -2,6 +2,7 @@
 bin/
 obj/
 *.dll
+!src/xunity-batch/CustomTranslate.dll
 *.exe
 *.pdb
 *.user
