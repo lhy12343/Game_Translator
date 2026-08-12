@@ -35,6 +35,9 @@ Check(prompt.Contains("你是游戏本地化翻译引擎")
 Check(TranslationRuntime.BuildCacheIdentity("Start", "game-a", config)
       != TranslationRuntime.BuildCacheIdentity("Start", "game-b", config),
     "SQLite 缓存键未包含游戏身份");
+Check(TranslationRuntime.BuildCacheIdentity("a\u001Fb", "c", config)
+      != TranslationRuntime.BuildCacheIdentity("a", "b\u001Fc", config),
+    "SQLite 缓存身份字段边界发生碰撞");
 
 var query = XUnityBridgeServer.ParseQuery("?from=ja&to=zh&text=hello+world");
 Check(query["from"] == "ja" && query["to"] == "zh" && query["text"] == "hello world", "桥接查询解析失败");

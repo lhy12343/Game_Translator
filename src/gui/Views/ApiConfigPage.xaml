@@ -29,25 +29,14 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Margin="0,0,12,0">
                     <TextBlock Text="源语言" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
                     <ComboBox ItemsSource="{Binding SourceLanguages}" SelectedItem="{Binding SourceLanguage}"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                <StackPanel Grid.Column="1">
                     <TextBlock Text="目标语言" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
                     <TextBox Text="{Binding TargetLanguage}" IsReadOnly="True"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="连接状态" FontSize="12" Foreground="#9090A8" Margin="0,0,0,6"/>
-                    <Border CornerRadius="6" Padding="10,8" Background="#242430">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="8" Height="8" Fill="#FDCB6E" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding ConnectionStatus}" FontSize="13" Foreground="#E8E8F0"
-                                       Margin="8,0,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </Grid>
         </Border>
@@ -66,6 +55,8 @@
             <Button Content="🔌 认证测试" Command="{Binding TestConnectionCommand}" Style="{StaticResource BtnPrimary}"/>
             <Button Content="💾 安全保存" Command="{Binding SaveConfigCommand}"
                     Style="{StaticResource BtnSecondary}" Margin="12,0,0,0"/>
+            <TextBlock Text="{Binding ConnectionStatus}" FontSize="12" Foreground="{StaticResource TextSecondary}"
+                       VerticalAlignment="Center" Margin="14,0,0,0"/>
         </StackPanel>
     </StackPanel>
 </UserControl>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -64,9 +65,15 @@ public partial class ApiConfigPageViewModel : ViewModelBase
         {
             ConnectionStatus = "认证已取消";
         }
-        catch (Exception exception)
+        catch (HttpRequestException exception)
         {
-            ConnectionStatus = $"认证失败：{exception.Message}";
+            ConnectionStatus = exception.StatusCode is { } statusCode
+                ? $"认证失败：HTTP {(int)statusCode}"
+                : "认证失败：网络错误";
+        }
+        catch (Exception)
+        {
+            ConnectionStatus = "认证失败";
         }
     }
 

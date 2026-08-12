@@ -91,10 +91,12 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
             using (client)
             await using (var stream = client.GetStream())
             {
+                var requestReceived = false;
                 try
                 {
                     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
                     var request = await ReadRequestAsync(stream, timeout.Token);
+                    requestReceived = true;
                     var uri = new Uri($"http://127.0.0.1{request.Target}");
 
                     var pathPrefix = $"/translate/{_token}/";
@@ -130,6 +132,12 @@ public sealed class XUnityBridgeServer : INotifyPropertyChanged
                     var result = await _runtime.TranslateAsync(text, gameId, sourceLanguage, targetLanguage, timeout.Token);
                     RuntimeLog.Write("单条请求完成");
                     await WriteResponseAsync(stream, 200, result.Text, timeout.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (requestReceived)
+                        try { await WriteResponseAsync(stream, 500, "Translation failed", CancellationToken.None); }
+                        catch { }
                 }
                 catch
                 {

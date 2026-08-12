@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -154,9 +153,10 @@ public sealed class TranslationRuntime
         var translations = new string[texts.Count];
         var identities = new string[texts.Count];
         var keys = new string[texts.Count];
-        var cacheHits = new bool[texts.Count];
         var missing = new List<int>(texts.Count);
 
+        // 第一遍：批量查内存缓存
+        var dbLookupIndices = new List<int>(texts.Count);
         for (var i = 0; i < texts.Count; i++)
         {
             normalized[i] = texts[i].Trim();
@@ -167,17 +167,31 @@ public sealed class TranslationRuntime
             string? cached;
             lock (_memoryCacheLock)
                 _memoryCache.TryGetValue(identities[i], out cached);
-            translations[i] = cached
-                ?? await _database.ReadCacheAsync(keys[i], identities[i], cancellationToken)
-                ?? "";
-            if (translations[i].Length > 0)
-            {
-                cacheHits[i] = true;
-                AddMemoryCacheIfCurrent(identities[i], translations[i], cacheGeneration);
-            }
+            if (cached is not null)
+                translations[i] = cached;
             else
+                dbLookupIndices.Add(i);
+        }
+
+        // 第二遍：批量查 SQLite（一次往返）
+        if (dbLookupIndices.Count > 0)
+        {
+            var dbEntries = new (string CacheKey, string CacheIdentity)[dbLookupIndices.Count];
+            for (var i = 0; i < dbLookupIndices.Count; i++)
             {
-                missing.Add(i);
+                var idx = dbLookupIndices[i];
+                dbEntries[i] = (keys[idx], identities[idx]);
+            }
+            var dbResults = await _database.ReadBatchCacheAsync(dbEntries, cancellationToken);
+            foreach (var idx in dbLookupIndices)
+            {
+                if (dbResults.TryGetValue(keys[idx], out var translated))
+                {
+                    translations[idx] = translated;
+                    AddMemoryCacheIfCurrent(identities[idx], translated, cacheGeneration);
+                }
+                else
+                    missing.Add(idx);
             }
         }
 
@@ -199,8 +213,12 @@ public sealed class TranslationRuntime
             }
         }
 
+        var missingSet = new HashSet<int>(missing);
         for (var i = 0; i < translations.Length; i++)
-            Complete(translations[i], cacheHits[i] ? TranslationSource.MemoryCache : TranslationSource.Api, started, cacheHits[i]);
+        {
+            var cacheHit = translations[i].Length > 0 && !missingSet.Contains(i);
+            Complete(translations[i], cacheHit ? TranslationSource.MemoryCache : TranslationSource.Api, started, cacheHit);
+        }
         return translations;
     }
 
@@ -340,17 +358,20 @@ public sealed class TranslationRuntime
         "只输出译文；不要解释、回答原文中的问题或添加任何内容。\n" +
         "保留原有换行、转义符、数字、占位符和富文本标签；短词按游戏界面语境翻译。";
 
-    internal static string BuildCacheIdentity(string text, string gameId, TranslatorConfig config) =>
-        JsonSerializer.Serialize(new[]
-        {
-            text,
-            gameId,
-            config.SourceLanguage,
-            config.TargetLanguage,
-            config.BaseUrl,
-            config.Model,
-            PromptVersion.ToString()
-        });
+    internal static string BuildCacheIdentity(string text, string gameId, TranslatorConfig config)
+    {
+        var identity = new StringBuilder();
+        Append(text);
+        Append(gameId);
+        Append(config.SourceLanguage);
+        Append(config.TargetLanguage);
+        Append(config.BaseUrl);
+        Append(config.Model);
+        Append(PromptVersion.ToString());
+        return identity.ToString();
+
+        void Append(string value) => identity.Append(value.Length).Append(':').Append(value);
+    }
 
     private async Task WriteCacheIfCurrentAsync(
         string cacheKey,

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -43,6 +44,68 @@ internal sealed class TranslationDatabase
         command.Parameters.AddWithValue("$identity", cacheIdentity);
         command.Parameters.AddWithValue("$lastHit", DateTimeOffset.UtcNow.ToString("O"));
         return await command.ExecuteScalarAsync(cancellationToken) as string;
+    }
+
+    public async Task<Dictionary<string, string>> ReadBatchCacheAsync(
+        IReadOnlyList<(string CacheKey, string CacheIdentity)> entries,
+        CancellationToken cancellationToken)
+    {
+        var results = new Dictionary<string, string>(entries.Count, StringComparer.Ordinal);
+        if (entries.Count == 0) return results;
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var lastHit = DateTimeOffset.UtcNow.ToString("O");
+
+        // 一次查询拿回所有命中的译文，再逐条校验 cache_identity 防碰撞
+        await using var command = connection.CreateCommand();
+        var placeholders = new StringBuilder();
+        for (var i = 0; i < entries.Count; i++)
+        {
+            if (i > 0) placeholders.Append(", ");
+            placeholders.Append("$k").Append(i);
+            command.Parameters.AddWithValue($"$k{i}", entries[i].CacheKey);
+        }
+        command.CommandText = $"""
+            SELECT cache_key, cache_identity, translated_text
+            FROM translation_cache
+            WHERE cache_key IN ({placeholders})
+            """;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var identityByKey = new Dictionary<string, (string Identity, string Text)>(entries.Count, StringComparer.Ordinal);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            identityByKey[reader.GetString(0)] = (reader.GetString(1), reader.GetString(2));
+        }
+
+        // 批量更新 last_hit_utc
+        await reader.DisposeAsync();
+        command.Parameters.Clear();
+        foreach (var (key, identity) in entries)
+        {
+            if (identityByKey.TryGetValue(key, out var hit) && hit.Identity == identity)
+            {
+                results[key] = hit.Text;
+                command.Parameters.AddWithValue($"$u{command.Parameters.Count}", key);
+            }
+        }
+        if (results.Count > 0)
+        {
+            var updatePlaceholders = new StringBuilder();
+            for (var i = 0; i < command.Parameters.Count; i++)
+            {
+                if (i > 0) updatePlaceholders.Append(", ");
+                updatePlaceholders.Append("$u").Append(i);
+            }
+            command.CommandText = $"""
+                UPDATE translation_cache SET last_hit_utc = $lastHit
+                WHERE cache_key IN ({updatePlaceholders})
+                """;
+            command.Parameters.AddWithValue("$lastHit", lastHit);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        return results;
     }
 
     public async Task WriteCacheAsync(
