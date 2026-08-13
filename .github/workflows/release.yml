@@ -16,7 +16,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
-      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -89,14 +88,3 @@ jobs:
             dist/GameTranslator-Setup-${{ steps.ver.outputs.version }}.exe
             dist/GameTranslator-${{ steps.ver.outputs.version }}-win-x64.zip
           generate_release_notes: true
-
-      - name: 打包 NuGet
-        run: dotnet pack src/gui -c Release -p:PackageVersion=${{ steps.ver.outputs.version }} -o dist
-
-      - name: 发布到 GitHub Packages
-        shell: bash
-        run: |
-          dotnet nuget push dist/*.nupkg \
-            --api-key ${{ secrets.GITHUB_TOKEN }} \
-            --source https://nuget.pkg.github.com/lhy12343/index.json \
-            --skip-duplicate

@@ -9,13 +9,6 @@
     <RootNamespace>GameTranslator.Gui</RootNamespace>
     <AssemblyName>GameTranslator</AssemblyName>
     <AssemblyName Condition="'$(Configuration)' == 'Debug'">GameTranslatorDebug</AssemblyName>
-    <!-- NuGet / GitHub Packages 元数据 -->
-    <PackageId>GameTranslator</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>lhy12343</Authors>
-    <Description>面向 Windows Unity 单机游戏的实时翻译工具</Description>
-    <RepositoryUrl>https://github.com/lhy12343/Game_Translator</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="../xunity-batch/CustomTranslate.dll" LogicalName="CustomTranslate.dll" />
