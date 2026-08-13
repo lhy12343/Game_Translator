@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如 0.1.0)'
+        required: true
+        default: '0.1.0'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 提取版本号
+        id: ver
+        shell: bash
+        run: |
+          if [[ -n "${{ inputs.version }}" ]]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 构建 CustomTranslate 插件
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/bbepis/XUnity.AutoTranslator/releases/download/v5.6.1/XUnity.AutoTranslator-BepInEx-5.6.1.zip" -o xunity.zip
+          echo "FBB7D1BBE2C7CC168DA6DCCBC500FB74786A85A548F52495C8A1592AC46407F5  xunity.zip" | sha256sum -c -
+          7z x -y -bd -oxunity xunity.zip >/dev/null
+          dotnet build src/xunity-batch -c Release \
+            -p:XUnityCorePath="$(pwd)/xunity/BepInEx/plugins/XUnity.AutoTranslator/XUnity.AutoTranslator.Plugin.Core.dll"
+          cp src/xunity-batch/bin/Release/net35/CustomTranslate.dll src/xunity-batch/CustomTranslate.dll
+
+      - name: 编译 Release 版
+        run: dotnet publish src/gui -c Release -r win-x64 --self-contained true -o publish/release
+
+      - name: 编译 Debug 版
+        run: dotnet publish src/gui -c Debug -r win-x64 --self-contained true -o publish/debug
+
+      - name: 构建安装器
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd publish/release && 7z a -tzip -mx=9 ../../payload.zip .)
+          dotnet publish src/installer/Installer.csproj -c Release -r win-x64 --self-contained true \
+            -p:PayloadPath="$(pwd)/payload.zip" -o publish/installer
+
+      - name: 整理发布产物
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          VER="${{ steps.ver.outputs.version }}"
+          cp publish/installer/GameTranslator-Setup.exe "dist/GameTranslator-Setup-${VER}.exe"
+          (cd publish/release && 7z a -tzip -mx=9 "../../dist/GameTranslator-${VER}-win-x64.zip" .)
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || format('v{0}', inputs.version) }}
+          name: Game Translator ${{ steps.ver.outputs.version }}
+          files: |
+            dist/GameTranslator-Setup-${{ steps.ver.outputs.version }}.exe
+            dist/GameTranslator-${{ steps.ver.outputs.version }}-win-x64.zip
+          generate_release_notes: true
+
+      - name: 打包 NuGet
+        run: dotnet pack src/gui -c Release -p:PackageVersion=${{ steps.ver.outputs.version }} -o dist
+
+      - name: 发布到 GitHub Packages
+        shell: bash
+        run: |
+          dotnet nuget push dist/*.nupkg \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --source https://nuget.pkg.github.com/lhy12343/index.json \
+            --skip-duplicate

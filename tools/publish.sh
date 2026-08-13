@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 打包 GameTranslator
+# 发布 GameTranslator 正式版、Debug 版和可选择安装目录的安装器
 # 用法: bash tools/publish.sh [目标目录, 默认 /mnt/c/Users/QingFeng/Desktop/GameTranslator]
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,11 +26,20 @@ if [[ "$TARGET" == "$DEFAULT_TARGET" ]]; then
     sleep 1
 fi
 
-mkdir -p "$TARGET"
+APP_TMP="$BUILD_TMP/app"
+mkdir -p "$APP_TMP" "$TARGET"
 rm -f "$TARGET"/GameTranslatorDebug.*
-dotnet publish src/gui -c Release -r $RID --self-contained true -o "$TARGET"
+dotnet publish src/gui -c Release -r $RID --self-contained true -o "$APP_TMP"
+rm -rf "$TARGET"/*
+cp -a "$APP_TMP"/. "$TARGET"/
 dotnet publish src/gui -c Debug -r $RID --self-contained true -o "$TARGET"
+
+PAYLOAD="$BUILD_TMP/GameTranslator-payload.zip"
+(cd "$APP_TMP" && 7z a -tzip -mx=9 "$PAYLOAD" . >/dev/null)
+dotnet publish src/installer/Installer.csproj -c Release -r $RID --self-contained true \
+    -p:PayloadPath="$PAYLOAD" -o "$TARGET"
 
 echo "已打包到 $TARGET:"
 ls "$TARGET"/GameTranslator.exe
 ls "$TARGET"/GameTranslatorDebug.exe
+ls "$TARGET"/GameTranslator-Setup.exe

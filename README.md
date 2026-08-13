@@ -4,6 +4,8 @@ Game Translator 是一款面向 Windows Unity 单机游戏的实时翻译工具�
 
 当前版本：`0.1.0`
 
+发布包包含 `GameTranslator-Setup.exe` 安装器。双击后可选择任意可写磁盘目录，安装程序会解压正式版文件并在桌面创建快捷方式，安装完成后可直接启动。
+
 ## 项目状态
 
 - 已完成 `0.1.0` 版本的功能开发与测试。
@@ -78,6 +80,14 @@ dotnet build src/gui/Gui.csproj -c Release
 ```bash
 bash tools/publish.sh
 ```
+
+发布目录同时包含：
+
+- `GameTranslator-Setup.exe`：图形化安装器；
+- `GameTranslator.exe`：正式版程序；
+- `GameTranslatorDebug.exe`：调试版程序。
+
+安装器本身为 Windows x64 自包含 EXE，不需要预先安装 .NET Runtime。安装目录需要具备写入权限；如安装到 `Program Files`，Windows 可能会弹出管理员权限确认。
 
 指定输出目录：
 
