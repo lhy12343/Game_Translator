@@ -62,7 +62,8 @@ jobs:
         shell: pwsh
         run: |
           # 将 publish 输出复制到 Inno Setup 脚本期望的 release 目录
-          Copy-Item -Path publish/release/* -Destination src/installer/release -Recurse -Force
+          if (Test-Path src/installer/release) { Remove-Item src/installer/release -Recurse -Force }
+          Copy-Item -Path publish/release -Destination src/installer/release -Recurse -Force
           # 更新脚本中的版本号
           $iss = Get-Content src/installer/GameTranslator.iss -Raw
           $iss = $iss -replace '0\.1\.0', '${{ steps.ver.outputs.version }}'
