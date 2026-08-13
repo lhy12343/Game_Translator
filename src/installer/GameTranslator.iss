@@ -53,3 +53,65 @@ Type: filesandordirs; Name: "{app}\logs"
 ; 清理可能残留的其他文件，然后删除空目录
 Type: filesandordirs; Name: "{app}\BepInEx"
 Type: dirifempty; Name: "{app}"
+
+[Code]
+function IsProcessRunning(const ProcessName: String): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if Exec(ExpandConstant('{cmd}'), '/C tasklist /FI "IMAGENAME eq ' + ProcessName + '" | find "' + ProcessName + '"',
+          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := (ResultCode = 0);
+end;
+
+procedure KillProcesses();
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM GameTranslator.exe',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM GameTranslatorDebug.exe',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(1000);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  if IsProcessRunning('GameTranslator.exe') or IsProcessRunning('GameTranslatorDebug.exe') then
+  begin
+    if MsgBox('检测到 Game Translator 正在运行，需要先关闭程序才能继续安装。' + #13#10 + #13#10 +
+              '是否立即关闭并继续？', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      KillProcesses();
+      if IsProcessRunning('GameTranslator.exe') or IsProcessRunning('GameTranslatorDebug.exe') then
+      begin
+        MsgBox('无法自动关闭程序，请手动关闭后重试。', mbError, MB_OK);
+        Result := False;
+      end;
+    end
+    else
+      Result := False;
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+  if IsProcessRunning('GameTranslator.exe') or IsProcessRunning('GameTranslatorDebug.exe') then
+  begin
+    if MsgBox('检测到 Game Translator 正在运行，需要先关闭程序才能卸载。' + #13#10 + #13#10 +
+              '是否立即关闭并继续卸载？', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      KillProcesses();
+      if IsProcessRunning('GameTranslator.exe') or IsProcessRunning('GameTranslatorDebug.exe') then
+      begin
+        MsgBox('无法自动关闭程序，请手动关闭后重试。', mbError, MB_OK);
+        Result := False;
+      end;
+    end
+    else
+      Result := False;
+  end;
+end;
