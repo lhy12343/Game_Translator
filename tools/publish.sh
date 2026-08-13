@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 发布 GameTranslator 正式版、Debug 版和可选择安装目录的安装器
+# 发布 GameTranslator 正式版、Debug 版和 Inno Setup 安装器
 # 用法: bash tools/publish.sh [目标目录, 默认 /mnt/c/Users/QingFeng/Desktop/GameTranslator]
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -34,10 +34,12 @@ rm -rf "$TARGET"/*
 cp -a "$APP_TMP"/. "$TARGET"/
 dotnet publish src/gui -c Debug -r $RID --self-contained true -o "$TARGET"
 
-PAYLOAD="$BUILD_TMP/GameTranslator-payload.zip"
-(cd "$APP_TMP" && 7z a -tzip -mx=9 "$PAYLOAD" . >/dev/null)
-dotnet publish src/installer/Installer.csproj -c Release -r $RID --self-contained true \
-    -p:PayloadPath="$PAYLOAD" -o "$TARGET"
+# Inno Setup 安装器
+mkdir -p src/installer/release
+cp -a "$APP_TMP"/. src/installer/release/
+ISCC=/mnt/c/Program\ Files\ \(x86\)/Inno\ Setup\ 6/ISCC.exe
+"$ISCC" src/installer/GameTranslator.iss
+cp src/installer/GameTranslator-Setup.exe "$TARGET"/
 
 echo "已打包到 $TARGET:"
 ls "$TARGET"/GameTranslator.exe

@@ -87,7 +87,7 @@ bash tools/publish.sh
 - `GameTranslator.exe`：正式版程序；
 - `GameTranslatorDebug.exe`：调试版程序。
 
-安装器本身为 Windows x64 自包含 EXE，不需要预先安装 .NET Runtime。安装目录需要具备写入权限；如安装到 `Program Files`，Windows 可能会弹出管理员权限确认。
+安装器使用 Inno Setup 构建，不需要预先安装 .NET Runtime。安装目录需要具备写入权限；如安装到 `Program Files`，Windows 可能会弹出管理员权限确认。
 
 指定输出目录：
 
