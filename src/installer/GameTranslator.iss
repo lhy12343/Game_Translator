@@ -44,3 +44,12 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "立即启动 {#AppName}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; 清理运行时生成的配置和缓存
+Type: filesandordirs; Name: "{app}\Data"
+Type: filesandordirs; Name: "{app}\Cache"
+Type: filesandordirs; Name: "{app}\logs"
+; 清理可能残留的其他文件，然后删除空目录
+Type: filesandordirs; Name: "{app}\BepInEx"
+Type: dirifempty; Name: "{app}"
