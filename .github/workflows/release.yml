@@ -61,6 +61,11 @@ jobs:
       - name: 构建 Inno Setup 安装器
         shell: pwsh
         run: |
+          # 补充中文语言包（choco 安装可能不含）
+          $langDir = "C:\Program Files (x86)\Inno Setup 6\Languages"
+          if (-not (Test-Path "$langDir\ChineseSimplified.isl")) {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl" -OutFile "$langDir\ChineseSimplified.isl"
+          }
           # 将 publish 输出复制到 Inno Setup 脚本期望的 release 目录
           if (Test-Path src/installer/release) { Remove-Item src/installer/release -Recurse -Force }
           Copy-Item -Path publish/release -Destination src/installer/release -Recurse -Force
