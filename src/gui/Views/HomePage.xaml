@@ -54,6 +54,19 @@
             </Grid>
         </Border>
 
+        <Border CornerRadius="10" Background="#1A1A24" BorderBrush="{StaticResource BorderSubtle}"
+                BorderThickness="1" Padding="20,14" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="TMP 中文字体" FontSize="13" Foreground="#9090A8"
+                           VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox ItemsSource="{Binding TmpFontModes}" SelectedItem="{Binding TmpFontMode}"
+                          MinWidth="240" VerticalAlignment="Center"/>
+                <TextBlock FontSize="12" Foreground="{StaticResource TextSecondary}"
+                           VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" MaxWidth="420"
+                           Text="默认使用“自动（按 Unity 版本）”；需要固定 Unity 2022 字体时选“TMP 回退字体（u2022）”。老版 TextMeshPro 游戏需选“老版 TMP 兼容”"/>
+            </StackPanel>
+        </Border>
+
         <Border CornerRadius="10" Background="#1A1A24" Padding="20" Margin="0,0,0,20">
             <Grid>
                 <Grid.ColumnDefinitions>

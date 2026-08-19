@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (如 0.1.0)'
+        description: '版本号 (如 0.2.0)'
         required: true
-        default: '0.1.0'
+        default: '0.2.0'
 
 jobs:
   build-and-release:
@@ -45,8 +45,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL "https://github.com/bbepis/XUnity.AutoTranslator/releases/download/v5.6.1/XUnity.AutoTranslator-BepInEx-5.6.1.zip" -o xunity.zip
-          echo "FBB7D1BBE2C7CC168DA6DCCBC500FB74786A85A548F52495C8A1592AC46407F5  xunity.zip" | sha256sum -c -
+          curl -fsSL "https://github.com/lhy12343/XUnity.AutoTranslator/releases/download/v5.6.2/XUnity.AutoTranslator-BepInEx-5.6.2.zip" -o xunity.zip
+          echo "6506170D7DF23924A76399FAE63D12CA21895ADFA9BF22AF8606342172D81F39  xunity.zip" | sha256sum -c -
           7z x -y -bd -oxunity xunity.zip >/dev/null
           dotnet build src/xunity-batch -c Release \
             -p:XUnityCorePath="$(pwd)/xunity/BepInEx/plugins/XUnity.AutoTranslator/XUnity.AutoTranslator.Plugin.Core.dll"
@@ -71,7 +71,7 @@ jobs:
           Copy-Item -Path publish/release -Destination src/installer/release -Recurse -Force
           # 更新脚本中的版本号
           $iss = Get-Content src/installer/GameTranslator.iss -Raw
-          $iss = $iss -replace '0\.1\.0', '${{ steps.ver.outputs.version }}'
+          $iss = $iss -replace '(?m)^#define AppVersion ".*"$', '#define AppVersion "${{ steps.ver.outputs.version }}"'
           Set-Content src/installer/GameTranslator.iss $iss
           # 编译
           iscc src/installer/GameTranslator.iss

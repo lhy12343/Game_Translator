@@ -15,6 +15,7 @@ public partial class App : Application
         try
         {
             AppPaths.Ensure(migrateLegacy: true);
+            RuntimeLog.Initialize(AppPaths.DataDirectory);
         }
         catch (Exception exception)
         {

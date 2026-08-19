@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,6 +101,30 @@ Check(HomePageViewModel.GetFontFile(6000) == "arialuni_sdf_u6000"
       && HomePageViewModel.GetFontFile(2017) == "arialuni_sdf-u55to2017",
     "Unity 版本字体分类错误");
 
+var tmpLegacyOverride2022 = HomePageViewModel.GetTmpFontSettings("TMP 主字体覆盖（u2022）", 2022);
+var tmpFallback2022 = HomePageViewModel.GetTmpFontSettings("TMP 回退字体（u2022）", 2022);
+var tmpAuto2022 = HomePageViewModel.GetTmpFontSettings("自动（按 Unity 版本）", 2022);
+var tmpDisabled = HomePageViewModel.GetTmpFontSettings("不注入中文字体", 2022);
+Check(tmpLegacyOverride2022.FontFile == "arialuni_sdf_u2022"
+      && tmpLegacyOverride2022.FallbackFontFile == "arialuni_sdf_u2022"
+      && tmpLegacyOverride2022.OverrideFontFile is null
+      && tmpFallback2022.FallbackFontFile == "arialuni_sdf_u2022"
+      && tmpFallback2022.OverrideFontFile is null
+      && tmpAuto2022.FallbackFontFile == "arialuni_sdf_u2022"
+      && tmpAuto2022.OverrideFontFile is null
+      && tmpDisabled.FontFile is null
+      && tmpDisabled.FallbackFontFile is null
+      && tmpDisabled.OverrideFontFile is null,
+    "TMP 字体模式配置错误");
+
+var xunityUrl = (string)typeof(HomePageViewModel).GetField("XUnityUrl", BindingFlags.NonPublic | BindingFlags.Static)!.GetRawConstantValue()!;
+var xunityHash = (string)typeof(HomePageViewModel).GetField("XUnityHash", BindingFlags.NonPublic | BindingFlags.Static)!.GetRawConstantValue()!;
+var xunityVersion = (string)typeof(HomePageViewModel).GetField("XUnityVersion", BindingFlags.NonPublic | BindingFlags.Static)!.GetRawConstantValue()!;
+Check(xunityUrl == "https://github.com/lhy12343/XUnity.AutoTranslator/releases/download/v5.6.2/XUnity.AutoTranslator-BepInEx-5.6.2.zip"
+      && xunityHash == "6506170D7DF23924A76399FAE63D12CA21895ADFA9BF22AF8606342172D81F39"
+      && xunityVersion == "5.6.2.0",
+    "XUnity 修复版下载源配置错误");
+
 var ini = HomePageViewModel.SetIniValue("[Service]\nEndpoint=GoogleTranslate\n\n[General]\nLanguage=zh", "Service", "Endpoint", "CustomTranslate");
 ini = HomePageViewModel.SetIniValue(ini, "Custom", "Url", "http://127.0.0.1/translate/token");
 ini = HomePageViewModel.SetIniValue(ini, "General", "Language", "zh-CN");
@@ -171,6 +196,34 @@ using (var client = new HttpClient(batchHandler))
         client, config, ["Start", "Exit"], "system", CancellationToken.None);
     Check(translated.SequenceEqual(["开始", "退出"]) && batchHandler.Count == 1,
         "批量翻译未保持顺序或产生了多次 API 请求");
+}
+
+var malformedBatchHandler = new StubHandler((attempt, _, _) => Task.FromResult(
+    attempt == 1
+        ? JsonResponse("[\\\"截断")
+        : attempt == 2 ? JsonResponse("开始") : JsonResponse("退出")));
+using (var client = new HttpClient(malformedBatchHandler))
+{
+    var translated = await OpenAiCompatibleClient.SendBatchAsync(
+        client, config, ["Start", "Exit"], "system", CancellationToken.None);
+    Check(translated.SequenceEqual(["开始", "退出"]) && malformedBatchHandler.Count == 3,
+        "批量 JSON 损坏时未回退到单条翻译");
+}
+
+string? singleRequestBody = null;
+var singleHandler = new StubHandler(async (_, request, _) =>
+{
+    singleRequestBody = await request.Content!.ReadAsStringAsync();
+    return JsonResponse("开始");
+});
+using (var client = new HttpClient(singleHandler))
+{
+    var translated = await OpenAiCompatibleClient.SendBatchAsync(
+        client, config, ["Start"], "system", CancellationToken.None);
+    Check(translated.SequenceEqual(["开始"])
+          && singleHandler.Count == 1
+          && singleRequestBody?.Contains("\"content\":\"Start\"", StringComparison.Ordinal) == true,
+        "单条翻译未绕过 JSON 数组协议");
 }
 
 var cancellationHandler = new StubHandler(async (_, _, token) =>

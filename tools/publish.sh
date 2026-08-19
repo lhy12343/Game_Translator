@@ -12,8 +12,8 @@ trap 'rm -rf "$BUILD_TMP"' EXIT
 
 # 每次发布都由源码重建嵌入式批量端点，避免 DLL 与源码漂移。
 XUNITY_ZIP="$BUILD_TMP/xunity.zip"
-curl -fsSL "https://github.com/bbepis/XUnity.AutoTranslator/releases/download/v5.6.1/XUnity.AutoTranslator-BepInEx-5.6.1.zip" -o "$XUNITY_ZIP"
-echo "FBB7D1BBE2C7CC168DA6DCCBC500FB74786A85A548F52495C8A1592AC46407F5  $XUNITY_ZIP" | sha256sum -c -
+curl -fsSL "https://github.com/lhy12343/XUnity.AutoTranslator/releases/download/v5.6.2/XUnity.AutoTranslator-BepInEx-5.6.2.zip" -o "$XUNITY_ZIP"
+echo "6506170D7DF23924A76399FAE63D12CA21895ADFA9BF22AF8606342172D81F39  $XUNITY_ZIP" | sha256sum -c -
 7z x -y -bd -o"$BUILD_TMP/xunity" "$XUNITY_ZIP" >/dev/null
 dotnet build src/xunity-batch -c Release -p:XUnityCorePath="$BUILD_TMP/xunity/BepInEx/plugins/XUnity.AutoTranslator/XUnity.AutoTranslator.Plugin.Core.dll"
 cp src/xunity-batch/bin/Release/net35/CustomTranslate.dll src/xunity-batch/CustomTranslate.dll

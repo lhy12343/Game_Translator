@@ -31,7 +31,7 @@ internal sealed class InstallerForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
 
-        var title = new Label { Text = "安装 Game Translator 0.1.0", AutoSize = true, Left = 24, Top = 20, Font = new Font(Font, FontStyle.Bold) };
+        var title = new Label { Text = "安装 Game Translator 0.2.0", AutoSize = true, Left = 24, Top = 20, Font = new Font(Font, FontStyle.Bold) };
         var prompt = new Label { Text = "选择安装目录：", AutoSize = true, Left = 24, Top = 62 };
         _folder.Left = 24;
         _folder.Top = 86;

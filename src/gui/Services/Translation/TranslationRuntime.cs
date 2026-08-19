@@ -201,15 +201,31 @@ public sealed class TranslationRuntime
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(config.TimeoutSeconds));
             var sourceTexts = missing.Select(index => normalized[index]).ToArray();
-            var translated = await OpenAiCompatibleClient.SendBatchAsync(
-                config, sourceTexts, BuildSystemPrompt(config), timeout.Token);
-            RuntimeLog.Write($"API 批量请求完成：{translated.Length} 条");
-            for (var i = 0; i < missing.Count; i++)
+            try
             {
-                var index = missing[i];
-                translations[index] = translated[i];
-                await WriteCacheIfCurrentAsync(
-                    keys[index], identities[index], translated[i], cacheGeneration, timeout.Token);
+                var translated = await OpenAiCompatibleClient.SendBatchAsync(
+                    config, sourceTexts, BuildSystemPrompt(config), timeout.Token);
+                RuntimeLog.Write($"API 批量请求完成：{translated.Length} 条");
+                for (var i = 0; i < missing.Count; i++)
+                {
+                    var index = missing[i];
+                    translations[index] = translated[i];
+                    await WriteCacheIfCurrentAsync(
+                        keys[index], identities[index], translated[i], cacheGeneration, timeout.Token);
+                }
+                RuntimeLog.Write(
+                    $"[翻译] 批量成功 · {translated.Length} 条 · " +
+                    $"耗时 {(long)Math.Round(Stopwatch.GetElapsedTime(started).TotalMilliseconds)} ms");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                RuntimeLog.Write("[翻译] 批量取消");
+                throw;
+            }
+            catch (Exception exception)
+            {
+                RuntimeLog.Write($"[翻译] 批量失败：{exception.Message}");
+                throw;
             }
         }
 
@@ -336,19 +352,25 @@ public sealed class TranslationRuntime
                 work.CancellationToken.ThrowIfCancellationRequested();
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(work.CancellationToken);
                 timeout.CancelAfter(TimeSpan.FromSeconds(work.Config.TimeoutSeconds));
+                var workerStarted = Stopwatch.GetTimestamp();
                 var translated = await OpenAiCompatibleClient.SendAsync(
                     work.Config, work.Text, BuildSystemPrompt(work.Config), timeout.Token);
                 await WriteCacheIfCurrentAsync(
                     work.CacheKey, work.CacheIdentity, translated, work.CacheGeneration, timeout.Token);
                 work.Completion.TrySetResult(new TranslationResult(translated, TranslationSource.Api, 0));
+                RuntimeLog.Write(
+                    $"[翻译] 单条成功 · 源 {work.Text.Length} 字符 → 译文 {translated.Length} 字符 · " +
+                    $"耗时 {(long)Math.Round(Stopwatch.GetElapsedTime(workerStarted).TotalMilliseconds)} ms");
             }
             catch (OperationCanceledException) when (work.CancellationToken.IsCancellationRequested)
             {
                 work.Completion.TrySetCanceled(work.CancellationToken);
+                RuntimeLog.Write("[翻译] 单条取消");
             }
             catch (Exception exception)
             {
                 work.Completion.TrySetException(exception);
+                RuntimeLog.Write($"[翻译] 单条失败：{exception.Message}");
             }
         }
     }

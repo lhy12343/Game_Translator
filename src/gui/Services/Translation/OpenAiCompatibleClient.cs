@@ -43,17 +43,31 @@ internal static class OpenAiCompatibleClient
         string systemPrompt,
         CancellationToken cancellationToken)
     {
+        if (texts.Count == 1)
+            return [await SendContentAsync(httpClient, config, texts[0], systemPrompt, cancellationToken)];
+
         var content = await SendContentAsync(
             httpClient,
             config,
             JsonSerializer.Serialize(texts),
             systemPrompt + "\n输入是 JSON 字符串数组；仅输出同等长度、顺序一致的 JSON 译文数组。",
             cancellationToken);
-        var translations = JsonSerializer.Deserialize<string[]>(content)
-            ?? throw new InvalidDataException("API 未返回译文数组。");
-        if (translations.Length != texts.Count || Array.Exists(translations, string.IsNullOrWhiteSpace))
-            throw new InvalidDataException("API 返回的译文数量不一致或包含空白译文。");
-        return translations;
+        try
+        {
+            var translations = JsonSerializer.Deserialize<string[]>(content)
+                ?? throw new InvalidDataException("API 未返回译文数组。");
+            if (translations.Length != texts.Count || Array.Exists(translations, string.IsNullOrWhiteSpace))
+                throw new InvalidDataException("API 返回的译文数量不一致或包含空白译文。");
+            return translations;
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        {
+            // ponytail: malformed batch fallback is one request per text; use provider-native structured output when available.
+            var translations = new string[texts.Count];
+            for (var i = 0; i < texts.Count; i++)
+                translations[i] = await SendContentAsync(httpClient, config, texts[i], systemPrompt, cancellationToken);
+            return translations;
+        }
     }
 
     public static Task<string[]> SendBatchAsync(
